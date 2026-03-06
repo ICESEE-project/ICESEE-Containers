@@ -1,0 +1,66 @@
+Bootstrap: docker
+From: docker.io/bkyanjo/spack-combined:latest
+
+%post
+    set -eu
+
+    apt-get update && apt-get install -y --no-install-recommends \
+        curl \
+        ca-certificates \
+        && rm -rf /var/lib/apt/lists/*
+
+    cat << 'EOF' > /opt/set_persistent_dir.sh
+#!/bin/sh
+set -e
+
+if [ -d "/scratch" ]; then
+    PERSISTENT_DIR="/scratch/${USER:-$(id -un)}/combined_cache"
+else
+    PERSISTENT_DIR="/tmp/${USER:-$(id -un)}/combined_cache"
+fi
+
+mkdir -p "$PERSISTENT_DIR/pyop2"
+mkdir -p "$PERSISTENT_DIR/tsfc"
+mkdir -p "$PERSISTENT_DIR/xdg"
+
+export PERSISTENT_DIR
+export PYOP2_CACHE_DIR="$PERSISTENT_DIR/pyop2"
+export FIREDRAKE_TSFC_KERNEL_CACHE_DIR="$PERSISTENT_DIR/tsfc"
+export XDG_CACHE_HOME="$PERSISTENT_DIR/xdg"
+EOF
+
+    chmod +x /opt/set_persistent_dir.sh
+
+%environment
+    export OMP_NUM_THREADS=1
+    export OPENBLAS_NUM_THREADS=1
+    export HDF5_MPI=ON
+    export MLM_LICENSE_FILE=1711@matlablic.ecs.gatech.edu
+
+%runscript
+    #!/bin/sh
+    set -e
+    . /opt/set_persistent_dir.sh
+    exec "$@"
+
+%test
+    /usr/local/bin/activate-firedrake python -c "import firedrake; print('firedrake ok')"
+    /usr/local/bin/activate-icepack python -c "import icepack; print('icepack ok')"
+    /usr/local/bin/activate-icesee python -c "import ICESEE; print('ICESEE ok')"
+    /usr/local/bin/activate-issm matlab -batch "disp('ISSM MATLAB OK')"
+
+%labels
+    Author Brian Kyanjo
+    Name Spack-Combined container
+
+%help
+    Combined container with:
+      - Firedrake / Icepack / ICESEE on OpenMPI + PETSc 3.24
+      - ISSM on MPICH + PETSc 3.22
+      - MATLAB from the base image
+
+    Use one activation wrapper at a time:
+      /usr/local/bin/activate-firedrake
+      /usr/local/bin/activate-icepack
+      /usr/local/bin/activate-icesee
+      /usr/local/bin/activate-issm
