@@ -1,0 +1,29 @@
+spack:
+  view: false
+
+  concretizer:
+    unify: when_possible
+
+  config:
+    install_tree:
+      root: /opt/spack
+
+  specs:
+    - python@3.11
+    - py-pip
+    - py-setuptools
+    - py-wheel
+    - py-numpy@1.26.4
+
+    - autoconf
+    - automake
+    - libtool
+    - m4
+    - cmake
+    - pkgconf
+    - gmake
+
+    - mpich@4.2.3 +fortran ~wrapperrpath
+    - hdf5@1.14.5 +mpi ^mpich@4.2.3
+
+    - petsc@3.22.3 +mpi +shared +fortran ~fortran-bindings +metis +mumps +scalapack +ptscotch +superlu-dist +hdf5 ^mpich@4.2.3 ^hdf5+mpi
