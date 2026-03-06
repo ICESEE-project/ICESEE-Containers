@@ -1,0 +1,44 @@
+spack:
+  view: false
+
+  concretizer:
+    unify: when_possible
+
+  config:
+    install_tree:
+      root: /opt/spack
+
+  specs:
+    # shared build/runtime
+    - python@3.11
+    - py-pip
+    - py-setuptools
+    - py-wheel
+    - py-pkgconfig
+    - py-numpy@1.26.4
+    - py-cython
+    - cmake
+    - ninja
+    - pkgconf
+    - autoconf
+    - automake
+    - libtool
+    - m4
+    - gmake
+    - git
+
+    # OpenMPI stack for Firedrake / Icepack / ICESEE
+    - openmpi@5.0.6 +legacylaunchers +internal-pmix
+    - hdf5@1.14.5 +mpi ^openmpi@5.0.6
+    - py-h5py@3.12.1 +mpi ^hdf5@1.14.5 +mpi ^openmpi@5.0.6
+    - py-mpi4py ^openmpi@5.0.6
+    - petsc@3.24.0 +mpi +shared +fortran ~fortran-bindings +mumps +hypre +metis +ptscotch +superlu-dist +suite-sparse +hdf5 +scalapack +fftw +hwloc ^openmpi@5.0.6 ^hdf5@1.14.5 +mpi ^fftw+mpi
+    - py-petsc4py@3.24.0 ^petsc@3.24.0
+
+    # MPICH stack for ISSM
+    - mpich@4.2.3 +fortran ~wrapperrpath
+    - hdf5@1.14.5 +mpi ^mpich@4.2.3
+    - petsc@3.22.3 +mpi +shared +fortran ~fortran-bindings +metis +mumps +ptscotch +superlu-dist +scalapack +hdf5 ^mpich@4.2.3 ^hdf5@1.14.5 +mpi
+
+  repos:
+    - /opt/icesee-spack

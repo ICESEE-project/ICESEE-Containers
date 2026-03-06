@@ -1,0 +1,70 @@
+Bootstrap: docker
+From: docker.io/bkyanjo/spack-issm:latest
+
+%post
+    set -eu
+
+    apt-get update && apt-get install -y --no-install-recommends \
+        curl \
+        ca-certificates \
+        && rm -rf /var/lib/apt/lists/*
+
+    cat << 'EOF' > /opt/activate_issm.sh
+#!/bin/sh
+set -e
+
+. /opt/spack-src/share/spack/setup-env.sh
+spack env activate /opt/spack-environment
+
+MPI_DIR="$(spack location -i mpich)"
+PETSC_DIR="$(spack location -i petsc)"
+
+export PATH="${MPI_DIR}/bin:/opt/ISSM/bin:${PATH}"
+export LD_LIBRARY_PATH="${MPI_DIR}/lib:${PETSC_DIR}/lib:${LD_LIBRARY_PATH:-}"
+export HDF5_MPI=ON
+export ISSM_DIR=/opt/ISSM
+export MLM_LICENSE_FILE="${MLM_LICENSE_FILE:-1711@matlablic.ecs.gatech.edu}"
+
+if [ -f /opt/ISSM/etc/environment.sh ]; then
+    set +u
+    . /opt/ISSM/etc/environment.sh
+    set -u
+fi
+EOF
+
+    chmod +x /opt/activate_issm.sh
+
+%environment
+    export ISSM_DIR=/opt/ISSM
+    export HDF5_MPI=ON
+    export MLM_LICENSE_FILE=1711@matlablic.ecs.gatech.edu
+
+%runscript
+    #!/bin/sh
+    set -e
+    . /opt/activate_issm.sh
+
+    if [ "$#" -gt 0 ]; then
+        exec "$@"
+    else
+        exec /bin/bash
+    fi
+
+%test
+    . /opt/activate_issm.sh
+    test -f /opt/ISSM/etc/environment.sh
+    mpicc --version
+    matlab -batch "disp('MATLAB OK')"
+
+%labels
+    Author Brian Kyanjo
+    Name Spack-ISSM container
+    Description MATLAB + Spack-managed MPICH/PETSc stack with ISSM
+
+%help
+    This Apptainer container starts from docker.io/bkyanjo/spack-issm:latest.
+
+    It provides:
+      - MATLAB base image
+      - Spack-managed MPICH and PETSc
+      - ISSM installed at /opt/ISSM
