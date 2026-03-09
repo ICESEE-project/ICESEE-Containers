@@ -1,4 +1,4 @@
-FROM docker.io/bkyanjo/spack-firedrake:latest
+FROM docker.io/bkyanjo/firedrake-spack:v1.0
 
 LABEL org.opencontainers.image.authors="Brian Kyanjo <briankyanjo@u.boisestate.edu>" \
       org.opencontainers.image.title="Spack Icepack base" \

@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: docker.io/bkyanjo/spack-firedrake:latest
+From: docker.io/bkyanjo/firedrake-spack:v1.0
 
 %post
     set -eu
