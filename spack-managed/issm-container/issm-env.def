@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: docker.io/bkyanjo/spack-issm:latest
+From: docker.io/bkyanjo/issm-lean:v1.0
 
 %post
     set -eu
@@ -13,16 +13,8 @@ From: docker.io/bkyanjo/spack-issm:latest
 #!/bin/sh
 set -e
 
-. /opt/spack-src/share/spack/setup-env.sh
-spack env activate /opt/spack-environment
+. /opt/runtime-env/issm-env.sh
 
-MPI_DIR="$(spack location -i mpich)"
-PETSC_DIR="$(spack location -i petsc)"
-
-export PATH="${MPI_DIR}/bin:/opt/ISSM/bin:${PATH}"
-export LD_LIBRARY_PATH="${MPI_DIR}/lib:${PETSC_DIR}/lib:${LD_LIBRARY_PATH:-}"
-export HDF5_MPI=ON
-export ISSM_DIR=/opt/ISSM
 export MLM_LICENSE_FILE="${MLM_LICENSE_FILE:-1711@matlablic.ecs.gatech.edu}"
 
 if [ -f /opt/ISSM/etc/environment.sh ]; then
@@ -58,13 +50,19 @@ EOF
 
 %labels
     Author Brian Kyanjo
-    Name Spack-ISSM container
-    Description MATLAB + Spack-managed MPICH/PETSc stack with ISSM
+    Name ISSM Lean container
+    Description MATLAB + lean MPICH/PETSc runtime with ISSM
 
 %help
-    This Apptainer container starts from docker.io/bkyanjo/spack-issm:latest.
+    This Apptainer container starts from docker.io/bkyanjo/issm-lean:v1.0.
 
     It provides:
       - MATLAB base image
-      - Spack-managed MPICH and PETSc
+      - Lean runtime for MPICH and PETSc
       - ISSM installed at /opt/ISSM
+      - Precomputed runtime environment in /opt/runtime-env/issm-env.sh
+
+    Typical usage:
+      apptainer exec issm-env-lean.sif mpicc --version
+      apptainer exec issm-env-lean.sif matlab -batch "disp('MATLAB OK')"
+      apptainer shell issm-env-lean.sif

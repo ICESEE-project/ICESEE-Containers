@@ -1,0 +1,53 @@
+FROM docker.io/bkyanjo/firedrake-lean:v1.0
+
+LABEL org.opencontainers.image.authors="Brian Kyanjo <briankyanjo@u.boisestate.edu>" \
+      org.opencontainers.image.title="Lean Icepack base" \
+      org.opencontainers.image.description="Icepack installed on top of the lean Firedrake base image"
+
+SHELL ["/bin/bash", "-lc"]
+ENV DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /opt
+
+# Minimal runtime/build helpers for pip installs and git clone
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    ca-certificates \
+    curl \
+    patchelf \
+    gmsh \
+ && rm -rf /var/lib/apt/lists/*
+
+# Install Icepack into the existing Firedrake venv
+RUN source /opt/runtime-env/firedrake-env.sh && \
+    unset PETSC_ARCH && \
+    source /opt/venv-firedrake/bin/activate && \
+    python -m pip install --upgrade pip && \
+    git clone --depth=1 https://github.com/icepack/icepack.git /opt/icepack && \
+    python -m pip install --editable /opt/icepack && \
+    python -m pip install ipykernel && \
+    python -c "import firedrake; import icepack; print('Icepack build/import test passed')"
+
+# Optional strip pass
+RUN set -euo pipefail; \
+    for ROOT in /opt/venv-firedrake; do \
+      [ -d "$ROOT" ] || continue; \
+      find -L "$ROOT" -type f -exec readlink -f '{}' \; | sort -u | \
+        xargs -r file -i | \
+        awk -F: '/charset=binary/ && /x-executable|x-sharedlib/ {print $1}' | \
+        xargs -r strip --strip-unneeded 2>/dev/null || true; \
+    done
+
+# Helper script for Icepack runtime
+RUN cat > /usr/local/bin/activate-icepack.sh <<'EOF'
+#!/bin/bash
+set -e
+source /opt/runtime-env/firedrake-env.sh
+unset PETSC_ARCH
+exec "$@"
+EOF
+
+RUN chmod +x /usr/local/bin/activate-icepack.sh
+
+ENTRYPOINT ["/usr/local/bin/activate-icepack.sh"]
+CMD ["/bin/bash"]
