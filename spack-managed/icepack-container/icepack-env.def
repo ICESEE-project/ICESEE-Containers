@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: docker.io/bkyanjo/spack-icepack:latest
+From: docker.io/bkyanjo/icepack-spack:v1.0
 
 %post
     set -eu
