@@ -1,41 +1,82 @@
 Bootstrap: docker
-From: docker.io/bkyanjo/issm-lean:v1.0
+From: docker.io/bkyanjo/issm-lean:v1.0  # Use the pre-built Docker image with ISSM and dependencies
 
 %post
     set -eu
 
+    # Install only the necessary runtime packages
     apt-get update && apt-get install -y --no-install-recommends \
         curl \
         ca-certificates \
-        && rm -rf /var/lib/apt/lists/*
+        file \
+        gfortran \
+        git \
+        locales \
+        make \
+        python3 \
+        python3-pip \
+        python3-venv \
+        unzip \
+        wget \
+        zip \
+        perl \
+        tar \
+        xz-utils \
+        bzip2 \
+        patch \
+        flex \
+        bison \
+        libssl-dev \
+        libffi-dev \
+        libhwloc-dev \
+        libnuma-dev \
+        libblas-dev \
+        liblapack-dev \
+        zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-    cat << 'EOF' > /opt/activate_issm.sh
-#!/bin/sh
+    # Set up locales
+    locale-gen en_US.UTF-8
+    export LANG=en_US.UTF-8
+    export LC_ALL=en_US.UTF-8
+
+    # Copy the runtime environment setup scripts and necessary directories from the builder stage
+    cp -r /opt/spack /opt/spack
+    cp -r /opt/ISSM /opt/ISSM
+    cp -r /opt/runtime-env /opt/runtime-env
+
+    # Create a simple helper script to activate ISSM
+    cat > /opt/activate-issm-env.sh <<'EOF'
+#!/bin/bash
 set -e
+source /opt/runtime-env/issm-env.sh
 
-. /opt/runtime-env/issm-env.sh
-
-export MLM_LICENSE_FILE="${MLM_LICENSE_FILE:-1711@matlablic.ecs.gatech.edu}"
+# Handle dynamic library preload for ISSM
+export LD_PRELOAD="${LD_PRELOAD:-/opt/ISSM/lib/libissm.so}"
 
 if [ -f /opt/ISSM/etc/environment.sh ]; then
     set +u
     . /opt/ISSM/etc/environment.sh
     set -u
 fi
+
+exec "$@"
 EOF
 
-    chmod +x /opt/activate_issm.sh
+    chmod +x /opt/activate-issm-env.sh
 
 %environment
+    # Set up environment variables for ISSM runtime
     export ISSM_DIR=/opt/ISSM
     export HDF5_MPI=ON
     export MLM_LICENSE_FILE=1711@matlablic.ecs.gatech.edu
 
 %runscript
-    #!/bin/sh
+    # Run ISSM container with environment setup
     set -e
-    . /opt/activate_issm.sh
+    source /opt/activate-issm-env.sh
 
+    # Execute the command passed to Apptainer
     if [ "$#" -gt 0 ]; then
         exec "$@"
     else
@@ -43,20 +84,19 @@ EOF
     fi
 
 %test
-    . /opt/activate_issm.sh
+    # Test ISSM in the environment
+    source /opt/activate-issm-env.sh
     test -f /opt/ISSM/etc/environment.sh
     mpicc --version
     matlab -batch "disp('MATLAB OK')"
 
 %labels
     Author Brian Kyanjo
-    Name ISSM Lean container
+    Name ISSM Lean Container
     Description MATLAB + lean MPICH/PETSc runtime with ISSM
 
 %help
-    This Apptainer container starts from docker.io/bkyanjo/issm-lean:v1.0.
-
-    It provides:
+    This Apptainer container provides:
       - MATLAB base image
       - Lean runtime for MPICH and PETSc
       - ISSM installed at /opt/ISSM

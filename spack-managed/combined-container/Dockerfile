@@ -1,5 +1,5 @@
 # =========================
-# Stage 1: builder
+# Stage 1: build everything
 # =========================
 FROM mathworks/matlab:r2024b AS builder
 
@@ -8,6 +8,7 @@ LABEL org.opencontainers.image.authors="Brian Kyanjo <briankyanjo@u.boisestate.e
       org.opencontainers.image.description="Builder for Firedrake, Icepack, ICESEE, and ISSM with Spack-managed MPI/PETSc stacks"
 
 SHELL ["/bin/bash", "-lc"]
+USER root
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -58,6 +59,7 @@ RUN git clone --depth=1 https://github.com/spack/spack.git /opt/spack-src
 ENV SPACK_ROOT=/opt/spack-src
 ENV PATH=/opt/spack-src/bin:$PATH
 
+# Copy Spack environment and ISSM build helper
 COPY spack.yaml /opt/spack-environment/spack.yaml
 COPY icesee-spack /opt/icesee-spack
 COPY scripts /opt/build-scripts

@@ -8,6 +8,7 @@ LABEL org.opencontainers.image.authors="Brian Kyanjo <briankyanjo@u.boisestate.e
       org.opencontainers.image.description="Builder stage for MATLAB + Spack-managed MPICH/PETSc toolchain and ISSM"
 
 SHELL ["/bin/bash", "-lc"]
+USER root
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -103,6 +104,9 @@ RUN cat > /usr/local/bin/activate-issm-nospack.sh <<'EOF'
 set -e
 source /opt/runtime-env/issm-env.sh
 
+# Add LD_PRELOAD handling for ISSM
+export LD_PRELOAD="${LD_PRELOAD:-/opt/ISSM/lib/libissm.so}"
+
 if [ -f /opt/ISSM/etc/environment.sh ]; then
     set +u
     . /opt/ISSM/etc/environment.sh
@@ -142,6 +146,7 @@ LABEL org.opencontainers.image.authors="Brian Kyanjo <briankyanjo@u.boisestate.e
       org.opencontainers.image.description="Lean runtime image for MATLAB + Spack-built ISSM without Spack activation at startup"
 
 SHELL ["/bin/bash", "-lc"]
+USER root
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
