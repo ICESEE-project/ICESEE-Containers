@@ -21,7 +21,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     gnupg \
     gmsh \
-    gmake \
     lsb-release \
     make \
     m4 \
@@ -71,6 +70,8 @@ RUN chmod +x /opt/build-scripts/*.sh
 WORKDIR /opt/spack-environment
 RUN source /opt/spack-src/share/spack/setup-env.sh && \
     spack env activate . && \
+    # rm -f spack.lock && \
+    spack config blame packages && \
     spack concretize -f && \
     spack install -j"$(nproc)"
 
@@ -110,7 +111,7 @@ export MPIFC="${OPENMPI_DIR}/bin/mpifort"
 export PETSC_DIR="${FIREDRAKE_PETSC_DIR}"
 export HDF5_MPI=ON
 EOF
-    cat > /opt/runtime-env/icepack-env.sh <<EOF
+RUN cat > /opt/runtime-env/icepack-env.sh <<EOF
 export PYTHON_DIR="${PYTHON_DIR}"
 export MPI_DIR="${OPENMPI_DIR}"
 export PETSC_DIR="${FIREDRAKE_PETSC_DIR}"
@@ -125,12 +126,12 @@ export MPIFC="${OPENMPI_DIR}/bin/mpifort"
 export PETSC_DIR="${FIREDRAKE_PETSC_DIR}"
 export HDF5_MPI=ON
 EOF
-    cat > /opt/runtime-env/icesee-env.sh <<EOF
+RUN cat > /opt/runtime-env/icesee-env.sh <<EOF
 export PYTHON_DIR="${PYTHON_DIR}"
 export MPI_DIR="${OPENMPI_DIR}"
 export HDF5_DIR="$(spack location -i hdf5)"
-export PATH="/opt/venv-icesee/bin:${MPI_DIR}/bin:${PATH}"
-export LD_LIBRARY_PATH="${MPI_DIR}/lib:${HDF5_DIR}/lib:${LD_LIBRARY_PATH:-}"
+export PATH="/opt/venv-icesee/bin:${MPI_DIR}/bin:\${PATH}"
+export LD_LIBRARY_PATH="${MPI_DIR}/lib:${HDF5_DIR}/lib:\${LD_LIBRARY_PATH:-}"
 export CC="${MPI_DIR}/bin/mpicc"
 export CXX="${MPI_DIR}/bin/mpicxx"
 export FC="${MPI_DIR}/bin/mpifort"
@@ -139,9 +140,9 @@ export MPICXX="${MPI_DIR}/bin/mpicxx"
 export MPIFC="${MPI_DIR}/bin/mpifort"
 export HDF5_MPI=ON
 export PYTHONPATH="/opt:\${PYTHONPATH:-}"
-exec "$@"
 EOF
-    cat > /opt/runtime-env/issm-env.sh <<EOF
+
+RUN cat > /opt/runtime-env/issm-env.sh <<EOF
 export MPI_DIR="${MPICH_DIR}"
 export PETSC_DIR="${ISSM_PETSC_DIR}"
 export PYTHON_DIR="${PYTHON_DIR}"
@@ -228,6 +229,7 @@ LABEL org.opencontainers.image.authors="Brian Kyanjo <briankyanjo@u.boisestate.e
       org.opencontainers.image.description="Lean runtime for Firedrake, Icepack, ICESEE, and ISSM without Spack activation at startup"
 
 SHELL ["/bin/bash", "-lc"]
+USER root
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -258,14 +260,16 @@ ENV LC_ALL=en_US.UTF-8
 
 COPY --from=builder /opt/spack /opt/spack
 COPY --from=builder /opt/venv-firedrake /opt/venv-firedrake
+COPY --from=builder /opt/venv-icesee /opt/venv-icesee
 COPY --from=builder /opt/ICESEE /opt/ICESEE
 COPY --from=builder /opt/icepack /opt/icepack
 COPY --from=builder /opt/ISSM /opt/ISSM
 COPY --from=builder /opt/runtime-env /opt/runtime-env
+
 COPY --from=builder /usr/local/bin/activate-firedrake /usr/local/bin/activate-firedrake
 COPY --from=builder /usr/local/bin/activate-icepack /usr/local/bin/activate-icepack
 COPY --from=builder /usr/local/bin/activate-icesee /usr/local/bin/activate-icesee
-COPY --from=builder /usr/local/bin/activate-issm /usr/local/bin/activate-issm
+COPY --from=builder /usr/local/bin/activate-issm-external-matlab /usr/local/bin/activate-issm-external-matlab
 
 ENV OMP_NUM_THREADS=1
 ENV OPENBLAS_NUM_THREADS=1

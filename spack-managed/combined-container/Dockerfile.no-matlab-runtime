@@ -21,7 +21,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     gnupg \
     gmsh \
-    gmake \
     lsb-release \
     make \
     m4 \
@@ -91,7 +90,7 @@ RUN source /opt/spack-src/share/spack/setup-env.sh && \
     OPENMPI_DIR="$(spack location -i openmpi)" && \
     FIREDRAKE_PETSC_DIR="$(spack location -i 'petsc@3.24.0 ^openmpi@5.0.6')" && \
     MPICH_DIR="$(spack location -i mpich)" && \
-    ISSM_PETSC_DIR="/opt/ISSM/externalpackages/petsc/install" && \
+    ISSM_PETSC_DIR="/opt/ISSM/externalpackages/petsc/src" && \
     PYTHON_DIR="$(spack location -i python)" && \
     cat > /opt/runtime-env/firedrake-env.sh <<EOF
 export PYTHON_DIR="${PYTHON_DIR}"

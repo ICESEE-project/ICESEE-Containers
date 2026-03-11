@@ -17,11 +17,11 @@ spack:
     - py-numpy@1.26.4
 
     # OpenMPI for Firedrake / Icepack / ICESEE
-    - openmpi@5.0.6 +legacylaunchers +internal-pmix
-    - hdf5@1.14.5 +mpi ^openmpi@5.0.6
-    - py-h5py@3.12.1 +mpi ^hdf5@1.14.5 +mpi ^openmpi@5.0.6
-    - py-mpi4py ^openmpi@5.0.6
-    - petsc@3.24.0 +mpi +shared +fortran ~fortran-bindings +mumps +hypre +metis +ptscotch +superlu-dist +suite-sparse +hdf5 +scalapack +fftw +hwloc ^openmpi@5.0.6 ^hdf5@1.14.5 +mpi ^fftw+mpi
+    - openmpi@5
+    - hdf5@1.14.5 +mpi ^openmpi@5
+    - py-h5py@3.12.1 +mpi ^hdf5@1.14.5 +mpi ^openmpi@5
+    - py-mpi4py ^openmpi@5
+    - petsc@3.24.0 +mpi +shared +fortran ~fortran-bindings +mumps +hypre +metis +ptscotch +superlu-dist +suite-sparse +hdf5 +scalapack +fftw +hwloc ^openmpi@5 ^hdf5@1.14.5 +mpi ^fftw+mpi
     - py-petsc4py@3.24.0 ^petsc@3.24.0
 
     # MPICH stack for ISSM
