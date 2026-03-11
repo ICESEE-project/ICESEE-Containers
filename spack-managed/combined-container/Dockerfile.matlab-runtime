@@ -48,6 +48,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     liblapack-dev \
     zlib1g-dev \
     locales \
+    cmake \
  && rm -rf /var/lib/apt/lists/*
 
 RUN locale-gen en_US.UTF-8
@@ -82,7 +83,7 @@ RUN source /opt/spack-src/share/spack/setup-env.sh && \
 RUN /opt/build-scripts/build_firedrake.sh
 RUN /opt/build-scripts/build_icepack.sh
 RUN /opt/build-scripts/build_icesee.sh
-RUN /opt/build-scripts/build_issm.sh
+RUN export ISSM_DIR="/opt/ISSM" && /opt/build-scripts/build_issm.sh
 
 # Precompute runtime environments so final image does not need Spack at startup
 RUN source /opt/spack-src/share/spack/setup-env.sh && \
@@ -91,7 +92,7 @@ RUN source /opt/spack-src/share/spack/setup-env.sh && \
     OPENMPI_DIR="$(spack location -i openmpi)" && \
     FIREDRAKE_PETSC_DIR="$(spack location -i 'petsc@3.24.0 ^openmpi@5.0.6')" && \
     MPICH_DIR="$(spack location -i mpich)" && \
-    ISSM_PETSC_DIR="$(spack location -i 'petsc@3.22.3 ^mpich@4.2.3')" && \
+    ISSM_PETSC_DIR="/opt/ISSM/externalpackages/petsc/src" && \
     PYTHON_DIR="$(spack location -i python)" && \
     MATLABROOT="${MATLABROOT:-/opt/matlab/R2024b}" && \
     cat > /opt/runtime-env/firedrake-env.sh <<EOF
@@ -127,18 +128,18 @@ EOF
     cat > /opt/runtime-env/icesee-env.sh <<EOF
 export PYTHON_DIR="${PYTHON_DIR}"
 export MPI_DIR="${OPENMPI_DIR}"
-export PETSC_DIR="${FIREDRAKE_PETSC_DIR}"
-export PATH="/opt/venv-firedrake/bin:${PYTHON_DIR}/bin:${OPENMPI_DIR}/bin:\${PATH}"
-export LD_LIBRARY_PATH="${OPENMPI_DIR}/lib:${FIREDRAKE_PETSC_DIR}/lib:${PYTHON_DIR}/lib:\${LD_LIBRARY_PATH:-}"
-export CC="${OPENMPI_DIR}/bin/mpicc"
-export CXX="${OPENMPI_DIR}/bin/mpicxx"
-export FC="${OPENMPI_DIR}/bin/mpifort"
-export MPICC="${OPENMPI_DIR}/bin/mpicc"
-export MPICXX="${OPENMPI_DIR}/bin/mpicxx"
-export MPIFC="${OPENMPI_DIR}/bin/mpifort"
-export PETSC_DIR="${FIREDRAKE_PETSC_DIR}"
+export HDF5_DIR="$(spack location -i hdf5)"
+export PATH="/opt/venv-icesee/bin:${MPI_DIR}/bin:${PATH}"
+export LD_LIBRARY_PATH="${MPI_DIR}/lib:${HDF5_DIR}/lib:${LD_LIBRARY_PATH:-}"
+export CC="${MPI_DIR}/bin/mpicc"
+export CXX="${MPI_DIR}/bin/mpicxx"
+export FC="${MPI_DIR}/bin/mpifort"
+export MPICC="${MPI_DIR}/bin/mpicc"
+export MPICXX="${MPI_DIR}/bin/mpicxx"
+export MPIFC="${MPI_DIR}/bin/mpifort"
 export HDF5_MPI=ON
 export PYTHONPATH="/opt:\${PYTHONPATH:-}"
+exec "$@"
 EOF
     cat > /opt/runtime-env/issm-env.sh <<EOF
 export MPI_DIR="${MPICH_DIR}"
@@ -149,8 +150,10 @@ export ISSM_DIR="/opt/ISSM"
 export PATH="${MPICH_DIR}/bin:/opt/ISSM/bin:\${PATH}"
 export LD_LIBRARY_PATH="${MPICH_DIR}/lib:${ISSM_PETSC_DIR}/lib:\${LD_LIBRARY_PATH:-}"
 export HDF5_MPI=ON
+export MLM_LICENSE_FILE=1711@matlablic.ecs.gatech.edu
 EOF
 
+# Runtime helpers
 RUN cat > /usr/local/bin/activate-firedrake <<'EOF'
 #!/bin/bash
 set -e
@@ -171,7 +174,6 @@ RUN cat > /usr/local/bin/activate-icesee <<'EOF'
 #!/bin/bash
 set -e
 source /opt/runtime-env/icesee-env.sh
-unset PETSC_ARCH
 exec "$@"
 EOF
 

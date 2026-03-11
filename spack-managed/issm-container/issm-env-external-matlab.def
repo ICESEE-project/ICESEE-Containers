@@ -1,0 +1,54 @@
+Bootstrap: docker
+From: docker.io/bkyanjo/issm-lean-external-matlab:v1.0
+
+%post
+    set -eu
+
+    apt-get update && apt-get install -y --no-install-recommends \
+        bash \
+        ca-certificates \
+        curl \
+        && rm -rf /var/lib/apt/lists/*
+
+%environment
+    export OMP_NUM_THREADS=1
+    export OPENBLAS_NUM_THREADS=1
+    export HDF5_MPI=ON
+    export ISSM_DIR=/opt/ISSM
+    export MLM_LICENSE_FILE=${MLM_LICENSE_FILE:-1711@matlablic.ecs.gatech.edu}
+    export MATLABROOT=${MATLABROOT:-/opt/matlab/R2024b}
+
+%runscript
+    #!/bin/sh
+    set -e
+    exec /usr/local/bin/activate-issm-external-matlab.sh "$@"
+
+%test
+    test -f /opt/runtime-env/issm-env.sh
+    test -f /opt/ISSM/etc/environment.sh
+    /usr/local/bin/activate-issm-external-matlab.sh bash -lc 'command -v mpicc >/dev/null'
+
+%labels
+    Author Brian Kyanjo
+    ContactEmail briankyanjo@u.boisestate.edu
+    Name ISSM lean external MATLAB
+    Description ISSM runtime image that expects MATLAB to be bound from the host system
+
+%help
+    This Apptainer image expects MATLAB to come from the host system.
+
+    You should bind your site MATLAB into the container and set MATLABROOT.
+
+    Example:
+      apptainer exec \
+        --bind /apps/MATLAB/R2024b:/opt/matlab/R2024b \
+        --env MATLABROOT=/opt/matlab/R2024b \
+        issm-env-external-matlab.sif \
+        matlab -batch "issmversion"
+
+    Or explicitly through the wrapper:
+      apptainer exec \
+        --bind /apps/MATLAB/R2024b:/opt/matlab/R2024b \
+        --env MATLABROOT=/opt/matlab/R2024b \
+        issm-env-external-matlab.sif \
+        /usr/local/bin/activate-issm-external-matlab.sh matlab -batch "issmversion"

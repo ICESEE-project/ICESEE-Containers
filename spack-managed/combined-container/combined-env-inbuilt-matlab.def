@@ -1,0 +1,115 @@
+Bootstrap: docker
+From: docker.io/bkyanjo/combined-lean:v1.0
+
+%post
+    set -eu
+
+    apt-get update && apt-get install -y --no-install-recommends \
+        bash \
+        curl \
+        ca-certificates \
+        && rm -rf /var/lib/apt/lists/*
+
+    cat << 'EOF' > /opt/set_persistent_dir.sh
+#!/bin/sh
+set -e
+
+if [ -d "/scratch" ]; then
+    PERSISTENT_DIR="/scratch/${USER:-$(id -un)}/combined_cache"
+else
+    PERSISTENT_DIR="/tmp/${USER:-$(id -un)}/combined_cache"
+fi
+
+mkdir -p "$PERSISTENT_DIR/pyop2"
+mkdir -p "$PERSISTENT_DIR/tsfc"
+mkdir -p "$PERSISTENT_DIR/xdg"
+
+export PERSISTENT_DIR
+export PYOP2_CACHE_DIR="$PERSISTENT_DIR/pyop2"
+export FIREDRAKE_TSFC_KERNEL_CACHE_DIR="$PERSISTENT_DIR/tsfc"
+export XDG_CACHE_HOME="$PERSISTENT_DIR/xdg"
+EOF
+
+    cat << 'EOF' > /usr/local/bin/with-firedrake
+#!/bin/sh
+set -e
+. /opt/set_persistent_dir.sh
+exec /usr/local/bin/activate-firedrake "$@"
+EOF
+
+    cat << 'EOF' > /usr/local/bin/with-icepack
+#!/bin/sh
+set -e
+. /opt/set_persistent_dir.sh
+exec /usr/local/bin/activate-icepack "$@"
+EOF
+
+    cat << 'EOF' > /usr/local/bin/with-icesee
+#!/bin/sh
+set -e
+. /opt/set_persistent_dir.sh
+exec /usr/local/bin/activate-icesee "$@"
+EOF
+
+    cat << 'EOF' > /usr/local/bin/with-issm
+#!/bin/sh
+set -e
+. /opt/set_persistent_dir.sh
+exec /usr/local/bin/activate-issm "$@"
+EOF
+
+    chmod +x /opt/set_persistent_dir.sh \
+              /usr/local/bin/with-firedrake \
+              /usr/local/bin/with-icepack \
+              /usr/local/bin/with-icesee \
+              /usr/local/bin/with-issm
+
+%environment
+    export OMP_NUM_THREADS=1
+    export OPENBLAS_NUM_THREADS=1
+    export HDF5_MPI=ON
+    export MLM_LICENSE_FILE=1711@matlablic.ecs.gatech.edu
+
+%runscript
+    #!/bin/sh
+    set -e
+    . /opt/set_persistent_dir.sh
+
+    if [ "$#" -gt 0 ]; then
+        exec "$@"
+    else
+        exec /bin/bash
+    fi
+
+%test
+    . /opt/set_persistent_dir.sh
+    /usr/local/bin/with-firedrake python -c "import firedrake; print('firedrake ok')"
+    /usr/local/bin/with-icepack python -c "import icepack; print('icepack ok')"
+    /usr/local/bin/with-icesee python -c "import ICESEE; print('ICESEE ok')"
+    /usr/local/bin/with-issm matlab -batch "disp('ISSM MATLAB OK')"
+
+%labels
+    Author Brian Kyanjo
+    Name Combined Lean container
+    Description Combined runtime with MATLAB present in the image
+
+%help
+    Combined container with:
+      - Firedrake / Icepack / ICESEE on OpenMPI + PETSc 3.24
+      - ISSM on MPICH + PETSc 3.22
+      - MATLAB available inside the image runtime
+
+    This image uses precomputed runtime environment wrappers and does not
+    require Spack activation at container startup.
+
+    Use one of the following wrappers:
+      with-firedrake
+      with-icepack
+      with-icesee
+      with-issm
+
+    Typical usage:
+      apptainer exec combined-env.sif with-firedrake python -c "import firedrake"
+      apptainer exec combined-env.sif with-icepack python -c "import icepack"
+      apptainer exec combined-env.sif with-icesee python -c "import ICESEE"
+      apptainer exec combined-env.sif with-issm matlab -batch "disp('MATLAB OK')"

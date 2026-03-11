@@ -1,0 +1,286 @@
+# =========================
+# Stage 1: builder
+# =========================
+FROM mathworks/matlab:r2024b AS builder
+
+LABEL org.opencontainers.image.authors="Brian Kyanjo <briankyanjo@u.boisestate.edu>" \
+      org.opencontainers.image.title="Combined scientific stack builder" \
+      org.opencontainers.image.description="Builder for Firedrake, Icepack, ICESEE, and ISSM with Spack-managed MPI/PETSc stacks"
+
+SHELL ["/bin/bash", "-lc"]
+USER root
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    binutils \
+    ca-certificates \
+    curl \
+    file \
+    gfortran \
+    git \
+    gnupg \
+    gmsh \
+    gmake \
+    lsb-release \
+    make \
+    m4 \
+    ninja-build \
+    pkg-config \
+    perl \
+    python3 \
+    python3-pip \
+    python3-venv \
+    bzip2 \
+    xz-utils \
+    unzip \
+    wget \
+    zip \
+    patch \
+    cmake \
+    flex \
+    bison \
+    libssl-dev \
+    libffi-dev \
+    libhwloc-dev \
+    libnuma-dev \
+    libblas-dev \
+    liblapack-dev \
+    zlib1g-dev \
+    locales \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN locale-gen en_US.UTF-8
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
+
+WORKDIR /opt
+RUN git clone --depth=1 https://github.com/spack/spack.git /opt/spack-src
+
+ENV SPACK_ROOT=/opt/spack-src
+ENV PATH=/opt/spack-src/bin:$PATH
+
+# Copy Spack environment and build helpers
+COPY spack.yaml /opt/spack-environment/spack.yaml
+COPY icesee-spack /opt/icesee-spack
+COPY scripts /opt/build-scripts
+
+RUN chmod +x /opt/build-scripts/*.sh
+
+WORKDIR /opt/spack-environment
+RUN source /opt/spack-src/share/spack/setup-env.sh && \
+    spack env activate . && \
+    spack concretize -f && \
+    spack install -j"$(nproc)"
+
+RUN source /opt/spack-src/share/spack/setup-env.sh && \
+    spack env activate /opt/spack-environment && \
+    PYTHON="$(spack location -i python)/bin/python3" && \
+    "$PYTHON" -m ensurepip --upgrade || true && \
+    "$PYTHON" -m pip install --upgrade pip setuptools wheel
+
+RUN /opt/build-scripts/build_firedrake.sh
+RUN /opt/build-scripts/build_icepack.sh
+RUN /opt/build-scripts/build_icesee.sh
+RUN export ISSM_DIR="/opt/ISSM" && /opt/build-scripts/build_issm.sh
+
+# Precompute runtime environments so final image does not need Spack at startup
+RUN source /opt/spack-src/share/spack/setup-env.sh && \
+    spack env activate /opt/spack-environment && \
+    mkdir -p /opt/runtime-env && \
+    OPENMPI_DIR="$(spack location -i openmpi)" && \
+    FIREDRAKE_PETSC_DIR="$(spack location -i 'petsc@3.24.0 ^openmpi@5.0.6')" && \
+    MPICH_DIR="$(spack location -i mpich)" && \
+    ISSM_PETSC_DIR="/opt/ISSM/externalpackages/petsc/install" && \
+    PYTHON_DIR="$(spack location -i python)" && \
+    cat > /opt/runtime-env/firedrake-env.sh <<EOF
+export PYTHON_DIR="${PYTHON_DIR}"
+export MPI_DIR="${OPENMPI_DIR}"
+export PETSC_DIR="${FIREDRAKE_PETSC_DIR}"
+export PATH="/opt/venv-firedrake/bin:${PYTHON_DIR}/bin:${OPENMPI_DIR}/bin:\${PATH}"
+export LD_LIBRARY_PATH="${OPENMPI_DIR}/lib:${FIREDRAKE_PETSC_DIR}/lib:${PYTHON_DIR}/lib:\${LD_LIBRARY_PATH:-}"
+export CC="${OPENMPI_DIR}/bin/mpicc"
+export CXX="${OPENMPI_DIR}/bin/mpicxx"
+export FC="${OPENMPI_DIR}/bin/mpifort"
+export MPICC="${OPENMPI_DIR}/bin/mpicc"
+export MPICXX="${OPENMPI_DIR}/bin/mpicxx"
+export MPIFC="${OPENMPI_DIR}/bin/mpifort"
+export PETSC_DIR="${FIREDRAKE_PETSC_DIR}"
+export HDF5_MPI=ON
+EOF
+RUN cat > /opt/runtime-env/icepack-env.sh <<EOF
+export PYTHON_DIR="${PYTHON_DIR}"
+export MPI_DIR="${OPENMPI_DIR}"
+export PETSC_DIR="${FIREDRAKE_PETSC_DIR}"
+export PATH="/opt/venv-firedrake/bin:${PYTHON_DIR}/bin:${OPENMPI_DIR}/bin:\${PATH}"
+export LD_LIBRARY_PATH="${OPENMPI_DIR}/lib:${FIREDRAKE_PETSC_DIR}/lib:${PYTHON_DIR}/lib:\${LD_LIBRARY_PATH:-}"
+export CC="${OPENMPI_DIR}/bin/mpicc"
+export CXX="${OPENMPI_DIR}/bin/mpicxx"
+export FC="${OPENMPI_DIR}/bin/mpifort"
+export MPICC="${OPENMPI_DIR}/bin/mpicc"
+export MPICXX="${OPENMPI_DIR}/bin/mpicxx"
+export MPIFC="${OPENMPI_DIR}/bin/mpifort"
+export PETSC_DIR="${FIREDRAKE_PETSC_DIR}"
+export HDF5_MPI=ON
+EOF
+RUN cat > /opt/runtime-env/icesee-env.sh <<EOF
+export PYTHON_DIR="${PYTHON_DIR}"
+export MPI_DIR="${OPENMPI_DIR}"
+export HDF5_DIR="$(spack location -i hdf5)"
+export PATH="/opt/venv-icesee/bin:${MPI_DIR}/bin:\${PATH}"
+export LD_LIBRARY_PATH="${MPI_DIR}/lib:${HDF5_DIR}/lib:\${LD_LIBRARY_PATH:-}"
+export CC="${MPI_DIR}/bin/mpicc"
+export CXX="${MPI_DIR}/bin/mpicxx"
+export FC="${MPI_DIR}/bin/mpifort"
+export MPICC="${MPI_DIR}/bin/mpicc"
+export MPICXX="${MPI_DIR}/bin/mpicxx"
+export MPIFC="${MPI_DIR}/bin/mpifort"
+export HDF5_MPI=ON
+export PYTHONPATH="/opt:\${PYTHONPATH:-}"
+EOF
+RUN cat > /opt/runtime-env/issm-env.sh <<EOF
+export MPI_DIR="${MPICH_DIR}"
+export PETSC_DIR="${ISSM_PETSC_DIR}"
+export PYTHON_DIR="${PYTHON_DIR}"
+export ISSM_DIR="/opt/ISSM"
+export MATLABROOT="\${MATLABROOT:-/opt/matlab/R2024b}"
+export PATH="${MPICH_DIR}/bin:/opt/ISSM/bin:\${PATH}"
+export LD_LIBRARY_PATH="${MPICH_DIR}/lib:${ISSM_PETSC_DIR}/lib:\${LD_LIBRARY_PATH:-}"
+export HDF5_MPI=ON
+export MLM_LICENSE_FILE="\${MLM_LICENSE_FILE:-1711@matlablic.ecs.gatech.edu}"
+EOF
+
+# Runtime helpers
+RUN cat > /usr/local/bin/activate-firedrake <<'EOF'
+#!/bin/bash
+set -e
+source /opt/runtime-env/firedrake-env.sh
+unset PETSC_ARCH
+exec "$@"
+EOF
+
+RUN cat > /usr/local/bin/activate-icepack <<'EOF'
+#!/bin/bash
+set -e
+source /opt/runtime-env/icepack-env.sh
+unset PETSC_ARCH
+exec "$@"
+EOF
+
+RUN cat > /usr/local/bin/activate-icesee <<'EOF'
+#!/bin/bash
+set -e
+source /opt/runtime-env/icesee-env.sh
+exec "$@"
+EOF
+
+RUN cat > /usr/local/bin/activate-issm-external-matlab <<'EOF'
+#!/bin/bash
+set -e
+source /opt/runtime-env/issm-env.sh
+
+export MATLABROOT="${MATLABROOT:-/opt/matlab/R2024b}"
+export MLM_LICENSE_FILE="${MLM_LICENSE_FILE:-1711@matlablic.ecs.gatech.edu}"
+
+if [ ! -x "${MATLABROOT}/bin/matlab" ]; then
+    echo "ERROR: MATLAB not found at MATLABROOT=${MATLABROOT}" >&2
+    echo "Bind your host/site MATLAB and set MATLABROOT." >&2
+    echo "Example bind: /apps/MATLAB/R2024b:/opt/matlab/R2024b" >&2
+    exit 1
+fi
+
+export PATH="${MATLABROOT}/bin:${PATH}"
+
+if [ -f /opt/ISSM/etc/environment.sh ]; then
+  set +u
+  . /opt/ISSM/etc/environment.sh
+  set -u
+fi
+
+exec "$@"
+EOF
+
+RUN chmod +x /usr/local/bin/activate-firedrake \
+              /usr/local/bin/activate-icepack \
+              /usr/local/bin/activate-icesee \
+              /usr/local/bin/activate-issm-external-matlab
+
+RUN set -euo pipefail; \
+    for ROOT in /opt/spack /opt/venv-firedrake /opt/venv-icesee /opt/ISSM; do \
+      [ -d "$ROOT" ] || continue; \
+      find -L "$ROOT" -type f -exec readlink -f '{}' \; | sort -u | \
+        xargs -r file -i | \
+        awk -F: '/charset=binary/ && /x-executable|x-sharedlib/ {print $1}' | \
+        xargs -r strip --strip-unneeded 2>/dev/null || true; \
+    done
+
+# Build-time sanity checks
+RUN source /opt/runtime-env/firedrake-env.sh && unset PETSC_ARCH && \
+    python3 -c "import firedrake; print('firedrake OK')"
+
+RUN source /opt/runtime-env/icepack-env.sh && unset PETSC_ARCH && \
+    python3 -c "import icepack; print('icepack OK')"
+
+RUN source /opt/runtime-env/icesee-env.sh && \
+    python3 -c "import ICESEE; print('ICESEE OK')"
+
+RUN source /opt/runtime-env/issm-env.sh && \
+    test -f /opt/ISSM/etc/environment.sh && \
+    mpicc --version
+
+
+# =========================
+# Stage 2: no-MATLAB lean runtime
+# =========================
+FROM ubuntu:24.04 AS runtime
+
+LABEL org.opencontainers.image.authors="Brian Kyanjo <briankyanjo@u.boisestate.edu>" \
+      org.opencontainers.image.title="Combined scientific stack lean runtime (external MATLAB)" \
+      org.opencontainers.image.description="Lean runtime for Firedrake, Icepack, ICESEE, and ISSM with host/site MATLAB bound at runtime"
+
+SHELL ["/bin/bash", "-lc"]
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    ca-certificates \
+    curl \
+    file \
+    gfortran \
+    gmsh \
+    libffi8 \
+    libgfortran5 \
+    libhwloc15 \
+    libnuma1 \
+    libssl3 \
+    libstdc++6 \
+    perl \
+    python3 \
+    python3-venv \
+    locales \
+    xz-utils \
+    zlib1g \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN locale-gen en_US.UTF-8
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
+
+COPY --from=builder /opt/spack /opt/spack
+COPY --from=builder /opt/venv-firedrake /opt/venv-firedrake
+COPY --from=builder /opt/venv-icesee /opt/venv-icesee
+COPY --from=builder /opt/ICESEE /opt/ICESEE
+COPY --from=builder /opt/icepack /opt/icepack
+COPY --from=builder /opt/ISSM /opt/ISSM
+COPY --from=builder /opt/runtime-env /opt/runtime-env
+COPY --from=builder /usr/local/bin/activate-firedrake /usr/local/bin/activate-firedrake
+COPY --from=builder /usr/local/bin/activate-icepack /usr/local/bin/activate-icepack
+COPY --from=builder /usr/local/bin/activate-icesee /usr/local/bin/activate-icesee
+COPY --from=builder /usr/local/bin/activate-issm-external-matlab /usr/local/bin/activate-issm-external-matlab
+
+ENV OMP_NUM_THREADS=1
+ENV OPENBLAS_NUM_THREADS=1
+ENV HDF5_MPI=ON
+ENV ISSM_DIR=/opt/ISSM
+
+ENTRYPOINT ["/bin/bash"]

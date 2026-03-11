@@ -2,7 +2,7 @@ spack:
   view: false
 
   concretizer:
-    unify: when_possible
+    unify: false
 
   config:
     install_tree:
@@ -16,16 +16,6 @@ spack:
     - py-wheel
     - py-numpy@1.26.4
 
-    # Build tools
-    - autoconf
-    - automake
-    - libtool
-    - m4
-    - cmake
-    - pkgconf
-    - gmake
-    - git
-
     # OpenMPI for Firedrake / Icepack / ICESEE
     - openmpi@5.0.6 +legacylaunchers +internal-pmix
     - hdf5@1.14.5 +mpi ^openmpi@5.0.6
@@ -36,17 +26,6 @@ spack:
 
     # MPICH stack for ISSM
     - mpich@4.2.3 +fortran ~wrapperrpath
-    - hdf5@1.14.5 +mpi ^mpich@4.2.3
-
-    # ISSM dependencies (installed separately outside of PETSc)
-    - metis@5.1.0
-    - parmetis@4.0.3
-    - scalapack
-    - mumps
-    - openblas
-
-    # PETSc for ISSM with MPICH
-    - petsc@3.22.3 +mpi +shared +fortran ~fortran-bindings +metis +mumps +scalapack +ptscotch +superlu-dist +hdf5 ^mpich@4.2.3 ^hdf5@1.14.5 +mpi
 
   repos:
     - /opt/icesee-spack
