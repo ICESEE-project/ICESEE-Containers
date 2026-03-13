@@ -26,12 +26,14 @@ fi
 
 mkdir -p "${BASE_CACHE}/pyop2" \
          "${BASE_CACHE}/tsfc" \
-         "${BASE_CACHE}/xdg"
+         "${BASE_CACHE}/xdg" \
+         "${BASE_CACHE}/matplotlib"
 
 export PERSISTENT_DIR="${BASE_CACHE}"
 export PYOP2_CACHE_DIR="${BASE_CACHE}/pyop2"
 export FIREDRAKE_TSFC_KERNEL_CACHE_DIR="${BASE_CACHE}/tsfc"
 export XDG_CACHE_HOME="${BASE_CACHE}/xdg"
+export MPLCONFIGDIR="${BASE_CACHE}/matplotlib"
 EOF
 
     cat << 'EOF' > /usr/local/bin/with-firedrake
