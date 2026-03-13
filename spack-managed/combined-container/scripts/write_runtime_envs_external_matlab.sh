@@ -135,6 +135,12 @@ fi
 # Expose ICESEE source without switching Python interpreter
 export PYTHONPATH="/opt:${PYTHONPATH:-}"
 
+# Inject ISSM paths when MATLAB is called
+if [ "$1" = "matlab" ]; then
+  shift
+  exec matlab -nodesktop -nosplash -r "addpath('${ISSM_DIR}/bin'); addpath('${ISSM_DIR}/lib'); addpath('${ISSM_DIR}/src/m');" "$@"
+fi
+
 if [ $# -eq 0 ]; then
   exec bash --noprofile --norc
 fi
