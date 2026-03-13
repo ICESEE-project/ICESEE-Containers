@@ -153,6 +153,7 @@ fi
 
 "$@"
 EOF
+
 chmod +x \
   "${BIN_DIR}/activate-firedrake" \
   "${BIN_DIR}/activate-icepack" \
