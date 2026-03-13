@@ -118,24 +118,13 @@ source /opt/runtime-env/icesee-env.sh
 exec "$@"
 EOF
 
-log "Writing activate-issm-external-matlab ..."
 cat > "${BIN_DIR}/activate-issm-external-matlab" <<'EOF'
 #!/usr/bin/env bash
 set -e
+
 source /opt/runtime-env/issm-env.sh
-export PYTHONPATH="/opt:${PYTHONPATH:-}"
-
-export MATLABROOT="${MATLABROOT:-/opt/matlab/R2024b}"
 export MLM_LICENSE_FILE="${MLM_LICENSE_FILE:-1711@matlablic.ecs.gatech.edu}"
-
-if [ ! -x "${MATLABROOT}/bin/matlab" ]; then
-    echo "ERROR: MATLAB not found at MATLABROOT=${MATLABROOT}" >&2
-    echo "Bind your host/site MATLAB and set MATLABROOT." >&2
-    echo "Example bind: /apps/MATLAB/R2024b:/opt/matlab/R2024b" >&2
-    exit 1
-fi
-
-export PATH="${MATLABROOT}/bin:${PATH}"
+export MATLABROOT="${MATLABROOT:-/opt/matlab/R2024b}"
 
 if [ -f /opt/ISSM/etc/environment.sh ]; then
   set +u
@@ -143,9 +132,27 @@ if [ -f /opt/ISSM/etc/environment.sh ]; then
   set -u
 fi
 
-exec "$@"
-EOF
+# Expose ICESEE source without switching Python interpreter
+export PYTHONPATH="/opt:${PYTHONPATH:-}"
 
+if [ $# -eq 0 ]; then
+  exec bash --noprofile --norc
+fi
+
+if [ "$1" = "matlab" ]; then
+  if [ ! -x "${MATLABROOT}/bin/matlab" ]; then
+    echo "ERROR: MATLAB not found at MATLABROOT=${MATLABROOT}" >&2
+    echo "Bind your host/site MATLAB and set MATLABROOT." >&2
+    echo "Example bind: /apps/MATLAB/R2024b:/opt/matlab/R2024b" >&2
+    exit 1
+  fi
+
+  shift
+  exec "${MATLABROOT}/bin/matlab" "$@"
+fi
+
+"$@"
+EOF
 chmod +x \
   "${BIN_DIR}/activate-firedrake" \
   "${BIN_DIR}/activate-icepack" \
