@@ -4,58 +4,78 @@ From: docker.io/bkyanjo/combined-lean-external-matlab:v1.0
 %post
     set -eu
 
-    apt-get update && apt-get install -y --no-install-recommends \
-        bash \
-        curl \
-        ca-certificates \
-        && rm -rf /var/lib/apt/lists/*
-
     cat << 'EOF' > /opt/set_persistent_dir.sh
 #!/bin/sh
 set -e
 
-if [ -d "/scratch" ]; then
-    PERSISTENT_DIR="/scratch/${USER:-$(id -un)}/combined_cache"
+USER_NAME="${USER:-$(id -un 2>/dev/null || echo user)}"
+
+if [ -n "${APPTAINER_CACHEDIR:-}" ]; then
+    BASE_CACHE="${APPTAINER_CACHEDIR}"
+elif [ -n "${SINGULARITY_CACHEDIR:-}" ]; then
+    BASE_CACHE="${SINGULARITY_CACHEDIR}"
+elif [ -d "/scratch/${USER_NAME}" ]; then
+    BASE_CACHE="/scratch/${USER_NAME}/combined_cache"
+elif [ -d "/scratch" ]; then
+    BASE_CACHE="/scratch/${USER_NAME}/combined_cache"
+elif [ -d "/tmp" ]; then
+    BASE_CACHE="/tmp/${USER_NAME}/combined_cache"
 else
-    PERSISTENT_DIR="/tmp/${USER:-$(id -un)}/combined_cache"
+    BASE_CACHE="/var/tmp/${USER_NAME}/combined_cache"
 fi
 
-mkdir -p "$PERSISTENT_DIR/pyop2"
-mkdir -p "$PERSISTENT_DIR/tsfc"
-mkdir -p "$PERSISTENT_DIR/xdg"
+mkdir -p "${BASE_CACHE}/pyop2" \
+         "${BASE_CACHE}/tsfc" \
+         "${BASE_CACHE}/xdg"
 
-export PERSISTENT_DIR
-export PYOP2_CACHE_DIR="$PERSISTENT_DIR/pyop2"
-export FIREDRAKE_TSFC_KERNEL_CACHE_DIR="$PERSISTENT_DIR/tsfc"
-export XDG_CACHE_HOME="$PERSISTENT_DIR/xdg"
+export PERSISTENT_DIR="${BASE_CACHE}"
+export PYOP2_CACHE_DIR="${BASE_CACHE}/pyop2"
+export FIREDRAKE_TSFC_KERNEL_CACHE_DIR="${BASE_CACHE}/tsfc"
+export XDG_CACHE_HOME="${BASE_CACHE}/xdg"
 EOF
 
     cat << 'EOF' > /usr/local/bin/with-firedrake
 #!/bin/sh
 set -e
 . /opt/set_persistent_dir.sh
-exec /usr/local/bin/activate-firedrake "$@"
+if [ "$#" -eq 0 ]; then
+    exec /usr/local/bin/activate-firedrake bash
+else
+    exec /usr/local/bin/activate-firedrake "$@"
+fi
 EOF
 
     cat << 'EOF' > /usr/local/bin/with-icepack
 #!/bin/sh
 set -e
 . /opt/set_persistent_dir.sh
-exec /usr/local/bin/activate-icepack "$@"
+if [ "$#" -eq 0 ]; then
+    exec /usr/local/bin/activate-icepack bash
+else
+    exec /usr/local/bin/activate-icepack "$@"
+fi
 EOF
 
     cat << 'EOF' > /usr/local/bin/with-icesee
 #!/bin/sh
 set -e
 . /opt/set_persistent_dir.sh
-exec /usr/local/bin/activate-icesee "$@"
+if [ "$#" -eq 0 ]; then
+    exec /usr/local/bin/activate-icesee bash
+else
+    exec /usr/local/bin/activate-icesee "$@"
+fi
 EOF
 
     cat << 'EOF' > /usr/local/bin/with-issm
 #!/bin/sh
 set -e
 . /opt/set_persistent_dir.sh
-exec /usr/local/bin/activate-issm-external-matlab "$@"
+if [ "$#" -eq 0 ]; then
+    exec /usr/local/bin/activate-issm-external-matlab bash
+else
+    exec /usr/local/bin/activate-issm-external-matlab "$@"
+fi
 EOF
 
     chmod +x /opt/set_persistent_dir.sh \
@@ -68,8 +88,10 @@ EOF
     export OMP_NUM_THREADS=1
     export OPENBLAS_NUM_THREADS=1
     export HDF5_MPI=ON
-    export MLM_LICENSE_FILE=${MLM_LICENSE_FILE:-1711@matlablic.ecs.gatech.edu}
-    export MATLABROOT=${MATLABROOT:-/opt/matlab/R2024b}
+    export ISSM_DIR=/opt/ISSM
+    export MLM_LICENSE_FILE="${MLM_LICENSE_FILE:-1711@matlablic.ecs.gatech.edu}"
+    export MATLABROOT="${MATLABROOT:-/opt/matlab/R2024b}"
+    export PATH="/usr/local/bin:${PATH}"
 
 %runscript
     #!/bin/sh
@@ -87,6 +109,7 @@ EOF
     /usr/local/bin/with-firedrake python -c "import firedrake; print('firedrake ok')"
     /usr/local/bin/with-icepack python -c "import icepack; print('icepack ok')"
     /usr/local/bin/with-icesee python -c "import ICESEE; print('ICESEE ok')"
+    /usr/local/bin/with-issm bash -c 'test -f /opt/ISSM/etc/environment.sh && echo "issm wrapper ok"'
 
 %labels
     Author Brian Kyanjo
@@ -95,26 +118,27 @@ EOF
 
 %help
     Combined container with:
-      - Firedrake / Icepack / ICESEE on OpenMPI + PETSc 3.24
-      - ISSM on MPICH + PETSc 3.22
-      - No MATLAB inside the image runtime
+      - Firedrake in /opt/venv-firedrake
+      - Icepack in /opt/venv-icepack with access to Firedrake
+      - ICESEE in /opt/venv-icesee
+      - ISSM with external host MATLAB
+      - No MATLAB installation inside the image runtime
 
-    This image is intended for clusters or cloud platforms where MATLAB is
-    already installed outside the container and can be bound in.
+    This image is intended for clusters where MATLAB is already installed
+    outside the container and can be bind-mounted at runtime.
 
-    Use one of the following wrappers:
+    Available wrappers:
       with-firedrake
       with-icepack
       with-icesee
       with-issm
 
-    For ISSM, bind host MATLAB and set MATLABROOT.
-
-    Typical usage:
+    Basic usage:
       apptainer exec combined-env-external-matlab.sif with-firedrake python -c "import firedrake"
       apptainer exec combined-env-external-matlab.sif with-icepack python -c "import icepack"
       apptainer exec combined-env-external-matlab.sif with-icesee python -c "import ICESEE"
 
+    ISSM usage with host MATLAB bound in:
       apptainer exec \
         --bind /apps/MATLAB/R2024b:/opt/matlab/R2024b \
         --env MATLABROOT=/opt/matlab/R2024b \

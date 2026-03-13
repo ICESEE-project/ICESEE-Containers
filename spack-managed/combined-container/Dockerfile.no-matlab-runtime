@@ -165,6 +165,7 @@ ENV LC_ALL=en_US.UTF-8
 
 COPY --from=builder /opt/spack /opt/spack
 COPY --from=builder /opt/venv-firedrake /opt/venv-firedrake
+COPY --from=builder /opt/venv-icepack /opt/venv-icepack
 COPY --from=builder /opt/venv-icesee /opt/venv-icesee
 COPY --from=builder /opt/ICESEE /opt/ICESEE
 COPY --from=builder /opt/icepack /opt/icepack

@@ -16,7 +16,7 @@ spack env activate "${SPACK_ENV}"
 log "Resolving runtime dependency locations from Spack..."
 
 OPENMPI_DIR="$(spack location -i openmpi)" || die "openmpi not found"
-FIREDRAKE_PETSC_DIR="$(spack location -i 'petsc@3.24.0 ^openmpi@5.0.6')" || die "petsc@3.24.0 ^openmpi@5.0.6 not found"
+FIREDRAKE_PETSC_DIR="$(spack location -i 'petsc@3.24.0 ^openmpi@5.0.10')" || die "petsc@3.24.0 ^openmpi@5.0.10 not found"
 MPICH_DIR="$(spack location -i mpich)" || die "mpich not found"
 HDF5_DIR="$(spack location -i hdf5)" || die "hdf5 not found"
 PYTHON_DIR="$(spack location -i python)" || die "python not found"
@@ -95,7 +95,7 @@ cat > "${BIN_DIR}/activate-firedrake" <<'EOF'
 #!/usr/bin/env bash
 set -e
 source /opt/runtime-env/firedrake-env.sh
-source /opt/runtime-env/icesee-env.sh
+export PYTHONPATH="/opt:${PYTHONPATH:-}"
 unset PETSC_ARCH
 exec "$@"
 EOF
@@ -105,7 +105,7 @@ cat > "${BIN_DIR}/activate-icepack" <<'EOF'
 #!/usr/bin/env bash
 set -e
 source /opt/runtime-env/icepack-env.sh
-source /opt/runtime-env/icesee-env.sh
+export PYTHONPATH="/opt:${PYTHONPATH:-}"
 unset PETSC_ARCH
 exec "$@"
 EOF
@@ -123,7 +123,7 @@ cat > "${BIN_DIR}/activate-issm-external-matlab" <<'EOF'
 #!/usr/bin/env bash
 set -e
 source /opt/runtime-env/issm-env.sh
-source /opt/runtime-env/icesee-env.sh
+export PYTHONPATH="/opt:${PYTHONPATH:-}"
 
 export MATLABROOT="${MATLABROOT:-/opt/matlab/R2024b}"
 export MLM_LICENSE_FILE="${MLM_LICENSE_FILE:-1711@matlablic.ecs.gatech.edu}"

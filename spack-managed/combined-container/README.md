@@ -1,13 +1,17 @@
 # Combined Scientific Stack Containers
 
-A reproducible container environment for **glaciology and geophysical modeling** workflows including:
+A **reproducible container environment** for glaciology and geophysical modeling workflows including:
 
 * **Firedrake**
 * **Icepack**
 * **ICESEE**
 * **ISSM**
 
-These containers provide **precompiled MPI/PETSc stacks** and **preconfigured runtime environments** so users can run scientific models **without activating Spack at runtime**.
+These containers provide:
+
+* precompiled **MPI / PETSc toolchains**
+* preconfigured **runtime environments**
+* **no Spack activation required at runtime**
 
 The containers support both:
 
@@ -28,30 +32,49 @@ The container intentionally separates toolchains to maintain compatibility betwe
 └─────────────────────────────────────────────┘
                      │
                      ▼
-        Runtime activation wrappers
-     (activate-firedrake, with-issm, etc.)
+           Runtime activation wrappers
+      activate-firedrake / with-firedrake
+      activate-icepack   / with-icepack
+      activate-icesee    / with-icesee
+      activate-issm      / with-issm
                      │
                      ▼
 ┌─────────────────────────────────────────────┐
 │                MPI / PETSc                  │
 │                                             │
-│  OpenMPI 5.x  + PETSc 3.24  → Firedrake    │
-│  OpenMPI 5.x  + PETSc 3.24  → Icepack      │
-│  OpenMPI 5.x  + HDF5 MPI    → ICESEE       │
+│  OpenMPI 5.x + PETSc 3.24 → Firedrake      │
+│  OpenMPI 5.x + PETSc 3.24 → Icepack        │
+│  OpenMPI 5.x + HDF5 MPI   → ICESEE         │
 │                                             │
-│  MPICH 4.x   + PETSc 3.22   → ISSM         │
+│  MPICH 4.x  + PETSc 3.22 → ISSM            │
 └─────────────────────────────────────────────┘
                      │
                      ▼
-              Spack Toolchain
+                 Spack Toolchain
 ```
+
+---
+
+# Python Environments
+
+Each project uses its own isolated virtual environment.
+
+| Project   | Virtual Environment   |
+| --------- | --------------------- |
+| Firedrake | `/opt/venv-firedrake` |
+| Icepack   | `/opt/venv-icepack`   |
+| ICESEE    | `/opt/venv-icesee`    |
+
+This separation prevents dependency conflicts while still allowing tools to interact.
+
+Icepack is installed on top of Firedrake but runs in its **own venv**.
 
 ---
 
 # Repository Layout
 
 ```
-issm-container
+combined-container
 ├── Dockerfile.matlab-runtime
 ├── Dockerfile.nomatlab-runtime
 ├── README.md
@@ -60,7 +83,13 @@ issm-container
 ├── issm-env.def
 ├── issm-env-external-matlab.def
 ├── scripts
-│   └── build_issm_spack.sh
+│   ├── build_firedrake.sh
+│   ├── build_icepack.sh
+│   ├── build_icesee.sh
+│   ├── build_issm.sh
+│   ├── write_runtime_envs.sh
+│   ├── write_runtime_envs_external_matlab.sh
+│   └── gen_pip_reqs.py
 └── spack.yaml
 ```
 
@@ -72,7 +101,7 @@ Two container variants are provided.
 
 | Variant                       | MATLAB   | Intended Usage            |
 | ----------------------------- | -------- | ------------------------- |
-| `Dockerfile.matlab-runtime`   | Included | Cloud / local workstation |
+| `Dockerfile.matlab-runtime`   | Included | Local workstation / cloud |
 | `Dockerfile.nomatlab-runtime` | External | HPC clusters              |
 
 ---
@@ -81,7 +110,7 @@ Two container variants are provided.
 
 ## 1. MATLAB Runtime Container
 
-This container **includes MATLAB** inside the runtime image.
+This container **includes MATLAB**.
 
 ### Base Image
 
@@ -91,52 +120,58 @@ mathworks/matlab:r2024b
 
 ### Build
 
-```bash
+```
 docker build -f Dockerfile.matlab-runtime \
 -t bkyanjo/combined-lean:v1.0 .
 ```
 
 ---
 
-### Example Usage
+# Example Docker Usage
 
-#### Firedrake
+## Firedrake
 
-```bash
-docker run -it bkyanjo/combined-lean:v1.0 \
-/usr/local/bin/activate-firedrake python -c "import firedrake"
 ```
-
-#### Icepack
-
-```bash
 docker run -it bkyanjo/combined-lean:v1.0 \
-/usr/local/bin/activate-icepack python -c "import icepack"
-```
-
-#### ICESEE
-
-```bash
-docker run -it bkyanjo/combined-lean:v1.0 \
-/usr/local/bin/activate-icesee python -c "import ICESEE"
-```
-
-#### ISSM
-
-```bash
-docker run -it \
--e MLM_LICENSE_FILE=1711@matlablic.ecs.gatech.edu \
-bkyanjo/combined-lean:v1.0 \
-/usr/local/bin/activate-issm matlab -batch "issmversion"
+activate-firedrake python -c "import firedrake"
 ```
 
 ---
 
-# 2. External MATLAB Container
+## Icepack
+
+```
+docker run -it bkyanjo/combined-lean:v1.0 \
+activate-icepack python -c "import icepack"
+```
+
+---
+
+## ICESEE
+
+```
+docker run -it bkyanjo/combined-lean:v1.0 \
+activate-icesee python -c "import ICESEE"
+```
+
+---
+
+## ISSM
+
+```
+docker run -it \
+-e MLM_LICENSE_FILE=1711@matlablic.ecs.gatech.edu \
+bkyanjo/combined-lean:v1.0 \
+activate-issm matlab -batch "issmversion"
+```
+
+---
+
+# External MATLAB Container
 
 This container **does not include MATLAB**.
 
-MATLAB must be provided by the **host system or HPC cluster**.
+MATLAB must be supplied by the host system.
 
 ### Base Image
 
@@ -146,18 +181,18 @@ ubuntu:24.04
 
 ---
 
-### Build
+## Build
 
-```bash
+```
 docker build -f Dockerfile.nomatlab-runtime \
 -t bkyanjo/combined-lean-external-matlab:v1.0 .
 ```
 
 ---
 
-### Run with Host MATLAB
+# Run with Host MATLAB
 
-Example host MATLAB installation:
+Example host MATLAB installation
 
 ```
 /apps/MATLAB/R2024b
@@ -165,13 +200,13 @@ Example host MATLAB installation:
 
 Run container:
 
-```bash
+```
 docker run -it \
 -e MATLABROOT=/opt/matlab/R2024b \
 -e MLM_LICENSE_FILE=1711@matlablic.ecs.gatech.edu \
 -v /apps/MATLAB/R2024b:/opt/matlab/R2024b \
 bkyanjo/combined-lean-external-matlab:v1.0 \
-/usr/local/bin/activate-issm-external-matlab matlab -batch "issmversion"
+activate-issm-external-matlab matlab -batch "issmversion"
 ```
 
 ---
@@ -183,21 +218,23 @@ Two Apptainer definition files mirror the Docker images.
 | Definition File                | MATLAB   | Usage          |
 | ------------------------------ | -------- | -------------- |
 | `issm-env.def`                 | Included | MATLAB runtime |
-| `issm-env-external-matlab.def` | External | Cluster MATLAB |
+| `issm-env-external-matlab.def` | External | HPC clusters   |
 
 ---
 
-## Build Container
+# Build Apptainer Containers
 
-### MATLAB Runtime
+## MATLAB Runtime
 
-```bash
+```
 apptainer build combined-env.sif issm-env.def
 ```
 
-### External MATLAB
+---
 
-```bash
+## External MATLAB
+
+```
 apptainer build combined-env-external-matlab.sif \
 issm-env-external-matlab.def
 ```
@@ -208,7 +245,7 @@ issm-env-external-matlab.def
 
 ## Firedrake
 
-```bash
+```
 apptainer exec combined-env.sif \
 with-firedrake python -c "import firedrake"
 ```
@@ -217,7 +254,7 @@ with-firedrake python -c "import firedrake"
 
 ## Icepack
 
-```bash
+```
 apptainer exec combined-env.sif \
 with-icepack python -c "import icepack"
 ```
@@ -226,7 +263,7 @@ with-icepack python -c "import icepack"
 
 ## ICESEE
 
-```bash
+```
 apptainer exec combined-env.sif \
 with-icesee python -c "import ICESEE"
 ```
@@ -235,7 +272,7 @@ with-icesee python -c "import ICESEE"
 
 ## ISSM
 
-```bash
+```
 apptainer exec combined-env.sif \
 with-issm matlab -batch "issmversion"
 ```
@@ -244,7 +281,7 @@ with-issm matlab -batch "issmversion"
 
 # Running ISSM with External MATLAB
 
-Example cluster MATLAB:
+Example cluster MATLAB installation
 
 ```
 /apps/MATLAB/R2024b
@@ -252,7 +289,7 @@ Example cluster MATLAB:
 
 Run:
 
-```bash
+```
 apptainer exec \
 --bind /apps/MATLAB/R2024b:/opt/matlab/R2024b \
 --env MATLABROOT=/opt/matlab/R2024b \
@@ -266,19 +303,19 @@ with-issm matlab -batch "issmversion"
 
 The container automatically configures persistent caches.
 
-Preferred location:
+Preferred location
 
 ```
 /scratch/$USER/combined_cache
 ```
 
-Fallback:
+Fallback
 
 ```
 /tmp/$USER/combined_cache
 ```
 
-Created directories:
+Created directories
 
 ```
 pyop2
@@ -286,7 +323,7 @@ tsfc
 xdg
 ```
 
-These improve performance for:
+These improve performance for
 
 * Firedrake kernel compilation
 * TSFC kernels
@@ -305,11 +342,12 @@ with-icesee
 with-issm
 ```
 
-These automatically configure:
+These wrappers automatically configure
 
 * MPI
 * PETSc
 * library paths
+* Python environments
 * persistent caches
 
 ---
@@ -327,15 +365,15 @@ These automatically configure:
 
 # MATLAB Licensing
 
-MATLAB licensing is configured through:
+MATLAB licensing is configured through
 
 ```
 MLM_LICENSE_FILE
 ```
 
-Example:
+Example
 
-```bash
+```
 export MLM_LICENSE_FILE=1711@matlablic.ecs.gatech.edu
 ```
 
@@ -343,7 +381,6 @@ export MLM_LICENSE_FILE=1711@matlablic.ecs.gatech.edu
 
 # Maintainer
 
-Brian Kyanjo (briankyanjo@u.boisestate.edu)
+Brian Kyanjo
 Georgia Institute of Technology
-
 

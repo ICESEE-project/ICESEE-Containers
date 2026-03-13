@@ -94,7 +94,7 @@ cat > "${BIN_DIR}/activate-firedrake" <<'EOF'
 #!/usr/bin/env bash
 set -e
 source /opt/runtime-env/firedrake-env.sh
-source /opt/runtime-env/icesee-env.sh
+export PYTHONPATH="/opt:${PYTHONPATH:-}"
 unset PETSC_ARCH
 exec "$@"
 EOF
@@ -104,7 +104,7 @@ cat > "${BIN_DIR}/activate-icepack" <<'EOF'
 #!/usr/bin/env bash
 set -e
 source /opt/runtime-env/icepack-env.sh
-source /opt/runtime-env/icesee-env.sh
+export PYTHONPATH="/opt:${PYTHONPATH:-}"
 unset PETSC_ARCH
 exec "$@"
 EOF
@@ -128,7 +128,14 @@ if [ -f /opt/ISSM/etc/environment.sh ]; then
   . /opt/ISSM/etc/environment.sh
   set -u
 fi
-source /opt/runtime-env/icesee-env.sh
+export PYTHONPATH="/opt:${PYTHONPATH:-}"
+
+# Inject ISSM paths when MATLAB is called
+if [ "$1" = "matlab" ]; then
+  shift
+  exec matlab -nodesktop -nosplash -r "addpath('${ISSM_DIR}/bin'); addpath('${ISSM_DIR}/lib'); addpath('${ISSM_DIR}/src/m');" "$@"
+fi
+
 exec "$@"
 EOF
 
