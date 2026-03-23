@@ -136,6 +136,7 @@ EOF
     export MATLABPATH="/opt/matlab:${MATLABPATH:-}"
     export PATH="/usr/local/bin:${PATH}"
     export MPLCONFIGDIR="${APPTAINER_CACHEDIR:-/tmp}/matplotlib"
+    export PMIX_MCA_psec=native
 
 %runscript
     #!/bin/sh
