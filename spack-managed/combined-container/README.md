@@ -53,14 +53,20 @@ The container intentionally separates toolchains to maintain compatibility betwe
 ```
 issm-container
 ├── Dockerfile.matlab-runtime
-├── Dockerfile.nomatlab-runtime
+├── Dockerfile.no-matlab-runtime
 ├── README.md
 ├── icesee-spack
 │   └── repo.yaml
-├── issm-env.def
-├── issm-env-external-matlab.def
+├── combined-env-inbuilt-matlab.def
+├── combined-env-external-matlab.def
 ├── scripts
-│   └── build_issm_spack.sh
+│   ├── build_firedrake.sh
+│   ├── build_icepack.sh
+│   ├── build_icesee.sh
+│   ├── build_issm.sh
+│   ├── write_runtime_envs.sh
+│   ├── write_runtime_envs_external_matlab.sh  
+│   └── gen_pip_reqs.py
 └── spack.yaml
 ```
 
@@ -73,7 +79,7 @@ Two container variants are provided.
 | Variant                       | MATLAB   | Intended Usage            |
 | ----------------------------- | -------- | ------------------------- |
 | `Dockerfile.matlab-runtime`   | Included | Cloud / local workstation |
-| `Dockerfile.nomatlab-runtime` | External | HPC clusters              |
+| `Dockerfile.no-matlab-runtime` | External | HPC clusters             |
 
 ---
 
@@ -180,10 +186,10 @@ bkyanjo/combined-lean-external-matlab:v1.0 \
 
 Two Apptainer definition files mirror the Docker images.
 
-| Definition File                | MATLAB   | Usage          |
-| ------------------------------ | -------- | -------------- |
-| `issm-env.def`                 | Included | MATLAB runtime |
-| `issm-env-external-matlab.def` | External | Cluster MATLAB |
+| Definition File                     | MATLAB   | Usage          |
+| ------------------------------------| -------- | -------------- |
+| `combined-env-inbuilt-matlab.def`   | Included | MATLAB runtime |
+| `combined-env-external-matlab.def`  | External | Cluster MATLAB |
 
 ---
 
@@ -192,14 +198,14 @@ Two Apptainer definition files mirror the Docker images.
 ### MATLAB Runtime
 
 ```bash
-apptainer build combined-env.sif issm-env.def
+apptainer build combined-env.sif combined-env-inbuilt-matlab.def
 ```
 
 ### External MATLAB
 
 ```bash
 apptainer build combined-env-external-matlab.sif \
-issm-env-external-matlab.def
+combined-env-external-matlab.def
 ```
 
 ---
@@ -237,7 +243,7 @@ with-icesee python -c "import ICESEE"
 
 ```bash
 apptainer exec combined-env.sif \
-with-issm matlab -batch "issmversion"
+with-issm matlab -r "issmversion"
 ```
 
 ---
@@ -311,6 +317,39 @@ These automatically configure:
 * PETSc
 * library paths
 * persistent caches
+
+---
+# Cluster MPI wireup test
+
+## **A Simple Test**
+To verify the compatibility of the container with the SLURM environment, you can test it using a simple [mpi_hello_world.c](./mpi_hello_world.c) code by following these steps:
+
+```bash
+# Step 1: Purge existing modules
+module purge
+
+# Step 2: Compile the MPI code using mpicc from the container
+apptainer exec combined-env-inbuilt-matlab.sif with-icesee mpicc mpi_hello_world.c -o mpi_hello
+
+# Step 3: Load necessary modules (adjust GCC and MPI versions as per your system)
+module load gcc/12
+module load mvapich2
+
+# Step 4: Run the compiled program with SLURM
+srun --mpi=pmix -n 4 apptainer exec combined-env-inbuilt-matlab.sif ./mpi_hello
+```
+
+---
+
+#### **Expected Output**
+The output should resemble the following:
+
+```
+Hello world! Processor atl1-1-02-003-4-2.pace.gatech.edu, Rank 0 of 1, CPU 5, NUMA node 0, Namespace mnt:[4026534586]
+Hello world! Processor atl1-1-02-003-4-2.pace.gatech.edu, Rank 0 of 1, CPU 10, NUMA node 0, Namespace mnt:[4026534584]
+Hello world! Processor atl1-1-02-003-4-2.pace.gatech.edu, Rank 0 of 1, CPU 21, NUMA node 1, Namespace mnt:[4026534589]
+Hello world! Processor atl1-1-02-003-4-2.pace.gatech.edu, Rank 0 of 1, CPU 21, NUMA node 1, Namespace mnt:[4026534590]
+```
 
 ---
 
