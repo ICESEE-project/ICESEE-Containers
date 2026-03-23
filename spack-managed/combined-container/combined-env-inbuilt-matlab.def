@@ -3,6 +3,10 @@ From: docker.io/bkyanjo/combined-lean:v1.0
 
 %post
     set -eu
+    apt-get update && apt-get install -y --no-install-recommends \
+        git \
+        rsync \
+    && rm -rf /var/lib/apt/lists/*
 
     cat << 'EOF' > /opt/set_persistent_dir.sh
 #!/bin/sh
@@ -53,6 +57,7 @@ if [ "$#" -eq 0 ]; then
 else
     exec /usr/local/bin/activate-firedrake "$@"
 fi
+ . /opt/venv-icesee/bin/activate
 EOF
 
     cat << 'EOF' > /usr/local/bin/with-icepack
@@ -64,6 +69,7 @@ if [ "$#" -eq 0 ]; then
 else
     exec /usr/local/bin/activate-icepack "$@"
 fi
+ . /opt/venv-icesee/bin/activate
 EOF
 
     cat << 'EOF' > /usr/local/bin/with-icesee
@@ -77,11 +83,19 @@ else
 fi
 EOF
 
-    cat << 'EOF' > /usr/local/bin/with-issm
+    cat << 'EOF' > /usr/local/bin/activate-issm-icesee
 #!/bin/bash
 set -e
+
+# persistent runtime dirs
 . /opt/set_persistent_dir.sh
 
+# 1. Activate ICESEE first (gives Python + mpi4py + OpenMPI runtime)
+if [ -f /usr/local/bin/activate-icesee ]; then
+    . /usr/local/bin/activate-icesee
+fi
+
+# 2. Activate ISSM next (gives MATLAB + ISSM env)
 export ISSM_DIR="${ISSM_DIR:-/opt/ISSM}"
 if [ -f "${ISSM_DIR}/etc/environment.sh" ]; then
     . "${ISSM_DIR}/etc/environment.sh"
@@ -94,6 +108,16 @@ else
 fi
 EOF
 
+
+    cat << 'EOF' > /usr/local/bin/with-issm
+#!/bin/bash
+set -e
+if [ "$#" -eq 0 ]; then
+    exec /usr/local/bin/activate-issm-icesee bash
+else
+    exec /usr/local/bin/activate-issm-icesee "$@"
+fi
+EOF
     cat << 'EOF' > /usr/local/bin/issm-matlab
 #!/bin/bash
 set -e
@@ -120,12 +144,15 @@ if isdir_lib == 7
 end
 EOF
 
+
+
     chmod +x /opt/set_persistent_dir.sh \
               /usr/local/bin/with-firedrake \
               /usr/local/bin/with-icepack \
               /usr/local/bin/with-icesee \
               /usr/local/bin/with-issm \
-              /usr/local/bin/issm-matlab
+              /usr/local/bin/issm-matlab \
+              /usr/local/bin/activate-issm-icesee
 
 %environment
     export OMP_NUM_THREADS=1
@@ -137,7 +164,8 @@ EOF
     export PATH="/usr/local/bin:${PATH}"
     export MPLCONFIGDIR="${APPTAINER_CACHEDIR:-/tmp}/matplotlib"
     export PMIX_MCA_psec=native
-
+    export PYTHONPATH="/opt:\${PYTHONPATH:-}"
+    
 %runscript
     #!/bin/sh
     set -e

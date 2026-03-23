@@ -25,6 +25,7 @@ From: docker.io/bkyanjo/combined-lean-external-matlab:v1.0
         libice6 \
         libfontconfig1 \
         libfreetype6 \
+        rsync \
     && rm -rf /var/lib/apt/lists/*
 
     cat << 'EOF' > /opt/set_persistent_dir.sh
@@ -99,6 +100,7 @@ else
     exec /usr/local/bin/activate-icesee "$@"
 fi
 EOF
+
 
     cat << 'EOF' > /usr/local/bin/with-issm
 #!/bin/sh
