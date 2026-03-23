@@ -103,13 +103,16 @@ RUN chmod +x /opt/build-scripts/write_runtime_envs_external_matlab.sh && \
     /opt/build-scripts/write_runtime_envs_external_matlab.sh
 
 RUN set -euo pipefail; \
-    for ROOT in /opt/spack /opt/venv-firedrake /opt/venv-icesee /opt/ISSM; do \
+    for ROOT in /opt/spack /opt/venv-firedrake /opt/venv-icesee  /opt/venv-icepack /opt/ISSM; do \
       [ -d "$ROOT" ] || continue; \
       find -L "$ROOT" -type f -exec readlink -f '{}' \; | sort -u | \
         xargs -r file -i | \
         awk -F: '/charset=binary/ && /x-executable|x-sharedlib/ {print $1}' | \
         xargs -r strip --strip-unneeded 2>/dev/null || true; \
     done
+
+# RUN set -euo pipefail; \
+#     find /opt/ISSM/bin -maxdepth 1 -type f -executable -exec strip --strip-unneeded {} \; 2>/dev/null || true
 
 # Build-time sanity checks
 RUN source /opt/runtime-env/firedrake-env.sh && unset PETSC_ARCH && \

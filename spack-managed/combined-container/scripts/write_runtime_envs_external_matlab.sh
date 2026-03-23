@@ -139,7 +139,7 @@ if [ $# -eq 0 ]; then
   exec bash --noprofile --norc
 fi
 
-if [ "$1" = "matlab" ]; then
+if [ "${1:-}" = "matlab" ]; then
   if [ ! -x "${MATLABROOT}/bin/matlab" ]; then
     echo "ERROR: MATLAB not found at MATLABROOT=${MATLABROOT}" >&2
     echo "Bind your host/site MATLAB and set MATLABROOT." >&2
@@ -148,10 +148,13 @@ if [ "$1" = "matlab" ]; then
   fi
 
   shift
-  exec "${MATLABROOT}/bin/matlab" "$@"
+  exec "${MATLABROOT}/bin/matlab" \
+    -nodesktop -nosplash \
+    -r "addpath('${ISSM_DIR}/bin'); addpath('${ISSM_DIR}/lib'); addpath('${ISSM_DIR}/src/m');" \
+    "$@"
 fi
 
-"$@"
+exec "$@"
 EOF
 
 chmod +x \
