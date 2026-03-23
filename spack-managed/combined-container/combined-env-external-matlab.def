@@ -3,6 +3,29 @@ From: docker.io/bkyanjo/combined-lean-external-matlab:v1.0
 
 %post
     set -eu
+    apt-get update && apt-get install -y --no-install-recommends \
+        libgdk-pixbuf-2.0-0 \
+        libglib2.0-0 \
+        libpangocairo-1.0-0 \
+        libpango-1.0-0 \
+        libcairo2 \
+        libatk1.0-0 \
+        libgtk-3-0 \
+        libx11-6 \
+        libxext6 \
+        libxrender1 \
+        libxt6 \
+        libxmu6 \
+        libxi6 \
+        libxrandr2 \
+        libxfixes3 \
+        libxcursor1 \
+        libxinerama1 \
+        libsm6 \
+        libice6 \
+        libfontconfig1 \
+        libfreetype6 \
+    && rm -rf /var/lib/apt/lists/*
 
     cat << 'EOF' > /opt/set_persistent_dir.sh
 #!/bin/sh

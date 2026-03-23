@@ -10,28 +10,38 @@ set -e
 
 USER_NAME="${USER:-$(id -un 2>/dev/null || echo user)}"
 
-if [ -n "${APPTAINER_CACHEDIR:-}" ]; then
-    BASE_CACHE="${APPTAINER_CACHEDIR}"
-elif [ -n "${SINGULARITY_CACHEDIR:-}" ]; then
-    BASE_CACHE="${SINGULARITY_CACHEDIR}"
-elif [ -d "/scratch/${USER_NAME}" ]; then
-    BASE_CACHE="/scratch/${USER_NAME}/combined_cache"
-elif [ -d "/scratch" ]; then
-    BASE_CACHE="/scratch/${USER_NAME}/combined_cache"
-elif [ -d "/tmp" ]; then
-    BASE_CACHE="/tmp/${USER_NAME}/combined_cache"
-else
-    BASE_CACHE="/var/tmp/${USER_NAME}/combined_cache"
-fi
+choose_cache_base() {
+    for cand in \
+        "${APPTAINER_CACHEDIR:-}" \
+        "${SINGULARITY_CACHEDIR:-}" \
+        "/scratch/${USER_NAME}/combined_cache" \
+        "/tmp/${USER_NAME}/combined_cache" \
+        "/var/tmp/${USER_NAME}/combined_cache"
+    do
+        [ -n "$cand" ] || continue
+        if mkdir -p "$cand" 2>/dev/null; then
+            echo "$cand"
+            return 0
+        fi
+    done
+    return 1
+}
+
+BASE_CACHE="$(choose_cache_base)" || {
+    echo "ERROR: could not create a writable cache directory" >&2
+    exit 1
+}
 
 mkdir -p "${BASE_CACHE}/pyop2" \
          "${BASE_CACHE}/tsfc" \
-         "${BASE_CACHE}/xdg"
+         "${BASE_CACHE}/xdg" \
+         "${BASE_CACHE}/matplotlib"
 
 export PERSISTENT_DIR="${BASE_CACHE}"
 export PYOP2_CACHE_DIR="${BASE_CACHE}/pyop2"
 export FIREDRAKE_TSFC_KERNEL_CACHE_DIR="${BASE_CACHE}/tsfc"
 export XDG_CACHE_HOME="${BASE_CACHE}/xdg"
+export MPLCONFIGDIR="${BASE_CACHE}/matplotlib"
 EOF
 
     cat << 'EOF' > /usr/local/bin/with-firedrake
@@ -68,21 +78,54 @@ fi
 EOF
 
     cat << 'EOF' > /usr/local/bin/with-issm
-#!/bin/sh
+#!/bin/bash
 set -e
 . /opt/set_persistent_dir.sh
-if [ "$#" -eq 0 ]; then
-    exec /usr/local/bin/activate-issm bash
-else
-    exec /usr/local/bin/activate-issm "$@"
+
+export ISSM_DIR="${ISSM_DIR:-/opt/ISSM}"
+if [ -f "${ISSM_DIR}/etc/environment.sh" ]; then
+    . "${ISSM_DIR}/etc/environment.sh"
 fi
+
+if [ "$#" -eq 0 ]; then
+    exec /bin/bash
+else
+    exec "$@"
+fi
+EOF
+
+    cat << 'EOF' > /usr/local/bin/issm-matlab
+#!/bin/bash
+set -e
+. /opt/set_persistent_dir.sh
+
+export ISSM_DIR="${ISSM_DIR:-/opt/ISSM}"
+if [ -f "${ISSM_DIR}/etc/environment.sh" ]; then
+    . "${ISSM_DIR}/etc/environment.sh"
+fi
+
+exec matlab -r "addpath('${ISSM_DIR}/bin','${ISSM_DIR}/lib');"
+EOF
+
+    mkdir -p /opt/matlab
+    cat << 'EOF' > /opt/matlab/startup.m
+isdir_bin = exist('/opt/ISSM/bin','dir');
+isdir_lib = exist('/opt/ISSM/lib','dir');
+
+if isdir_bin == 7
+    addpath('/opt/ISSM/bin');
+end
+if isdir_lib == 7
+    addpath('/opt/ISSM/lib');
+end
 EOF
 
     chmod +x /opt/set_persistent_dir.sh \
               /usr/local/bin/with-firedrake \
               /usr/local/bin/with-icepack \
               /usr/local/bin/with-icesee \
-              /usr/local/bin/with-issm
+              /usr/local/bin/with-issm \
+              /usr/local/bin/issm-matlab
 
 %environment
     export OMP_NUM_THREADS=1
@@ -90,7 +133,9 @@ EOF
     export HDF5_MPI=ON
     export ISSM_DIR=/opt/ISSM
     export MLM_LICENSE_FILE="${MLM_LICENSE_FILE:-1711@matlablic.ecs.gatech.edu}"
+    export MATLABPATH="/opt/matlab:${MATLABPATH:-}"
     export PATH="/usr/local/bin:${PATH}"
+    export MPLCONFIGDIR="${APPTAINER_CACHEDIR:-/tmp}/matplotlib"
 
 %runscript
     #!/bin/sh
