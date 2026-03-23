@@ -209,7 +209,7 @@ EOF
       apptainer exec combined-env.sif with-firedrake python -c "import firedrake"
       apptainer exec combined-env.sif with-icepack python -c "import icepack"
       apptainer exec combined-env.sif with-icesee python -c "import ICESEE"
-      apptainer exec combined-env.sif with-issm matlab -batch "disp('MATLAB OK')"
+      apptainer exec combined-env.sif with-issm matlab -r "issmversion"
 
     Interactive shells:
       apptainer exec combined-env.sif with-firedrake
