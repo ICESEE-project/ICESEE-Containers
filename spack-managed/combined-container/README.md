@@ -244,17 +244,21 @@ with-icesee python -c "import ICESEE"
 ```
 ### Lauching a coupled ICESEE<->Icepack coupled run
 ```bash
-srun --mpi=pmix -n 8 apptainer exec combined-env-inbuilt-matlab.sif with-icepack \
-                      python run_da_icepack.py --Nens=40 
+srun --mpi=pmix -n 8 apptainer exec \
+-B /path/to/ICESEE:/opt/ICESEE   \
+combined-env-inbuilt-matlab.sif   with-icepack python run_da_icepack.py --Nens=40
 ```
+> Note: Bind mount path to ICESEE for latest versions
 
 ### Lauching a coupled ICESEE<->ISSM coupled run
 ```bash
 mkdir -p examples execution # for binding with container directories
-srun --mpi=pmix -n 8 apptainer exec -B examples:/opt/ISSM/examples,execution:/opt/ISSM/execution \
-                            combined-env-inbuilt-matlab.sif with-issm \
-                            python run_da_issm.py --Nens=24 --model_nprocs=1
+srun --mpi=pmix -n 8 apptainer exec \
+-B /path/to/ICESEE:/opt/ICESEE,examples:/opt/ISSM/examples,execution:/opt/ISSM/execution \
+combined-env-inbuilt-matlab.sif with-issm python run_da_issm.py --Nens=24 --model_nprocs=1
 ```
+> Note: Bind mount path to ICESEE for latest versions
+
 ---
 
 # Running ISSM with External MATLAB
