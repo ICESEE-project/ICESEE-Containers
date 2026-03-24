@@ -155,8 +155,7 @@ ubuntu:24.04
 ### Build
 
 ```bash
-docker build -f Dockerfile.nomatlab-runtime \
--t bkyanjo/combined-lean-external-matlab:v1.0 .
+docker build -f Dockerfile.nomatlab-runtime -t bkyanjo/combined-lean-external-matlab:v1.0 .
 ```
 
 ---
@@ -204,8 +203,7 @@ apptainer build combined-env.sif combined-env-inbuilt-matlab.def
 ### External MATLAB
 
 ```bash
-apptainer build combined-env-external-matlab.sif \
-combined-env-external-matlab.def
+apptainer build combined-env-external-matlab.sif combined-env-external-matlab.def
 ```
 
 ---
@@ -215,8 +213,7 @@ combined-env-external-matlab.def
 ## Firedrake
 
 ```bash
-apptainer exec combined-env.sif \
-with-firedrake python -c "import firedrake"
+apptainer exec combined-env.sif with-firedrake python -c "import firedrake"
 ```
 
 ---
@@ -224,37 +221,40 @@ with-firedrake python -c "import firedrake"
 ## Icepack
 
 ```bash
-apptainer exec combined-env.sif \
-with-icepack python -c "import icepack"
+apptainer exec combined-env.sif with-icepack python -c "import icepack"
 ```
 
 ---
 
 ## ISSM
 ```bash
-apptainer exec combined-env.sif \
-with-issm matlab -r "issmversion"
+apptainer exec combined-env.sif with-issm matlab -r "issmversion"
 ```
 ---
 
 ## ICESEE
 ```bash
-apptainer exec combined-env.sif \
-with-icesee python -c "import ICESEE"
+apptainer exec combined-env.sif with-icesee python -c "import ICESEE"
 ```
-### Lauching a coupled ICESEE<->Icepack coupled run
+### Lauching a sample coupled ICESEE<->Icepack coupled run
 ```bash
-srun --mpi=pmix -n 8 apptainer exec combined-env-inbuilt-matlab.sif with-icepack \
-                      python run_da_icepack.py --Nens=40 
+cd ~/ICESEE/applications/icepack_model/examples/synthetic_ice_stream  # go to a sample example directory
+srun --mpi=pmix -n 8 apptainer exec \
+-B /path/to/ICESEE:/opt/ICESEE   \
+combined-env-inbuilt-matlab.sif   with-icepack python run_da_icepack.py --Nens=40
 ```
+> Note: Bind mount path to ICESEE for latest versions
 
 ### Lauching a coupled ICESEE<->ISSM coupled run
 ```bash
+cd ~/ICESEE/applications/issm_model/examples/ISMIP_Choi    # go to a sample example directory
 mkdir -p examples execution # for binding with container directories
-srun --mpi=pmix -n 8 apptainer exec -B examples:/opt/ISSM/examples,execution:/opt/ISSM/execution \
-                            combined-env-inbuilt-matlab.sif with-issm \
-                            python run_da_issm.py --Nens=24 --model_nprocs=1
+srun --mpi=pmix -n 8 apptainer exec \
+-B /path/to/ICESEE:/opt/ICESEE,examples:/opt/ISSM/examples,execution:/opt/ISSM/execution \
+combined-env-inbuilt-matlab.sif with-issm python run_da_issm.py --Nens=24 --model_nprocs=1
 ```
+> Note: Bind mount path to ICESEE for latest versions
+
 ---
 
 # Running ISSM with External MATLAB
