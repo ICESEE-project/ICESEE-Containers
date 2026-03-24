@@ -354,10 +354,10 @@ srun --mpi=pmix -n 4 apptainer exec combined-env-inbuilt-matlab.sif ./mpi_hello
 The output should resemble the following:
 
 ```
-Hello world! Processor atl1-1-02-003-4-2.pace.gatech.edu, Rank 0 of 1, CPU 5, NUMA node 0, Namespace mnt:[4026534586]
-Hello world! Processor atl1-1-02-003-4-2.pace.gatech.edu, Rank 0 of 1, CPU 10, NUMA node 0, Namespace mnt:[4026534584]
-Hello world! Processor atl1-1-02-003-4-2.pace.gatech.edu, Rank 0 of 1, CPU 21, NUMA node 1, Namespace mnt:[4026534589]
-Hello world! Processor atl1-1-02-003-4-2.pace.gatech.edu, Rank 0 of 1, CPU 21, NUMA node 1, Namespace mnt:[4026534590]
+Hello world! Processor atl1-1-03-003-35-1.pace.gatech.edu, Rank 1 of 4, CPU 6, NUMA node 0, Namespace mnt:[4026533358]
+Hello world! Processor atl1-1-03-003-35-1.pace.gatech.edu, Rank 2 of 4, CPU 23, NUMA node 1, Namespace mnt:[4026533363]
+Hello world! Processor atl1-1-03-003-35-1.pace.gatech.edu, Rank 3 of 4, CPU 13, NUMA node 1, Namespace mnt:[4026533361]
+Hello world! Processor atl1-1-03-003-35-1.pace.gatech.edu, Rank 0 of 4, CPU 2, NUMA node 0, Namespace mnt:[4026533364]
 ```
 
 ---
