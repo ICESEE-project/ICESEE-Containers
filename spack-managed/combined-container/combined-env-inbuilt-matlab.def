@@ -23,6 +23,9 @@ From: docker.io/bkyanjo/combined-lean:v1.0
     /opt/venv-icepack/bin/pip install --no-cache-dir -r /tmp/icesee-pip-reqs-safe.txt
     /opt/venv-firedrake/bin/pip install --no-cache-dir -r /tmp/icesee-pip-reqs-safe.txt
 
+    /opt/venv-icepack/bin/pip install --no-cache-dir --no-deps bigmpi4py
+    /opt/venv-firedrake/bin/pip install --no-cache-dir --no-deps bigmpi4py
+
     cat << 'EOF' > /opt/set_persistent_dir.sh
 #!/bin/sh
 set -e
