@@ -236,8 +236,9 @@ apptainer exec combined-env.sif with-issm matlab -r "issmversion"
 ```bash
 apptainer exec combined-env.sif with-icesee python -c "import ICESEE"
 ```
-### Lauching a coupled ICESEE<->Icepack coupled run
+### Lauching a sample coupled ICESEE<->Icepack coupled run
 ```bash
+cd ~/ICESEE/applications/icepack_model/examples/synthetic_ice_stream  # go to a sample example directory
 srun --mpi=pmix -n 8 apptainer exec \
 -B /path/to/ICESEE:/opt/ICESEE   \
 combined-env-inbuilt-matlab.sif   with-icepack python run_da_icepack.py --Nens=40
@@ -246,6 +247,7 @@ combined-env-inbuilt-matlab.sif   with-icepack python run_da_icepack.py --Nens=4
 
 ### Lauching a coupled ICESEE<->ISSM coupled run
 ```bash
+cd ~/ICESEE/applications/issm_model/examples/ISMIP_Choi    # go to a sample example directory
 mkdir -p examples execution # for binding with container directories
 srun --mpi=pmix -n 8 apptainer exec \
 -B /path/to/ICESEE:/opt/ICESEE,examples:/opt/ISSM/examples,execution:/opt/ISSM/execution \
