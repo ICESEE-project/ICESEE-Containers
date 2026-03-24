@@ -115,20 +115,20 @@ else
 fi
 EOF
 
-    cat << 'EOF' > /usr/local/bin/activate-issm-icesee
+    cat << 'EOF' > /usr/local/bin/with-issm
 #!/bin/bash
 set -e
 
-# persistent runtime dirs
 . /opt/set_persistent_dir.sh
 
-# Activate ICESEE first (gives Python + mpi4py + OpenMPI runtime)
-if [ -f /usr/local/bin/activate-icesee ]; then
-    . /usr/local/bin/activate-icesee
+export ISSM_DIR="${ISSM_DIR:-/opt/ISSM}"
+
+# ICESEE Python env first, if needed for Python workflows
+if [ -f /opt/venv-icesee/bin/activate ]; then
+    . /opt/venv-icesee/bin/activate
 fi
 
-# Activate ISSM next (gives MATLAB + ISSM env)
-export ISSM_DIR="${ISSM_DIR:-/opt/ISSM}"
+# ISSM runtime env last, so its library paths win
 if [ -f "${ISSM_DIR}/etc/environment.sh" ]; then
     . "${ISSM_DIR}/etc/environment.sh"
 fi
@@ -140,16 +140,6 @@ else
 fi
 EOF
 
-
-    cat << 'EOF' > /usr/local/bin/with-issm
-#!/bin/bash
-set -e
-if [ "$#" -eq 0 ]; then
-    exec /usr/local/bin/activate-issm-icesee bash
-else
-    exec /usr/local/bin/activate-issm-icesee "$@"
-fi
-EOF
     cat << 'EOF' > /usr/local/bin/issm-matlab
 #!/bin/bash
 set -e
@@ -182,7 +172,7 @@ EOF
               /usr/local/bin/with-icesee \
               /usr/local/bin/with-issm \
               /usr/local/bin/issm-matlab \
-              /usr/local/bin/activate-issm-icesee
+            #   /usr/local/bin/activate-issm-icesee
 
 %environment
     export OMP_NUM_THREADS=1
