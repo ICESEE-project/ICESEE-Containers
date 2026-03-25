@@ -115,23 +115,31 @@ else
 fi
 EOF
 
-    cat << 'EOF' > /usr/local/bin/with-issm
+     cat << 'EOF' > /usr/local/bin/with-issm
 #!/bin/bash
 set -e
 
 . /opt/set_persistent_dir.sh
-
 export ISSM_DIR="${ISSM_DIR:-/opt/ISSM}"
 
-# ICESEE Python env first, if needed for Python workflows
-if [ -f /opt/venv-icesee/bin/activate ]; then
-    . /opt/venv-icesee/bin/activate
+# ICESEE Python
+. /opt/venv-icesee/bin/activate
+
+# ICESEE/OpenMPI runtime libs
+ICESEE_MPI_LIB="/opt/spack/linux-skylake/openmpi-5.0.10-f5se2v23aaj7xdbrgzf6zpdjjnbt6lmj/lib"
+ICESEE_HDF5_LIB="/opt/spack/linux-skylake/hdf5-1.14.5-oomu4lo2wkwg4ufbuiumyjuimwhmlp4o/lib"
+
+export LD_LIBRARY_PATH="${ICESEE_MPI_LIB}:${ICESEE_HDF5_LIB}:${LD_LIBRARY_PATH:-}"
+
+# ISSM runtime
+if [ -f "${ISSM_DIR}/etc/environment.sh" ]; then
+    set +u
+    . "${ISSM_DIR}/etc/environment.sh"
+    set -u
 fi
 
-# ISSM runtime env last, so its library paths win
-if [ -f "${ISSM_DIR}/etc/environment.sh" ]; then
-    . "${ISSM_DIR}/etc/environment.sh"
-fi
+# Restore ICESEE MPI libs in front after ISSM modifies LD_LIBRARY_PATH
+export LD_LIBRARY_PATH="${ICESEE_MPI_LIB}:${ICESEE_HDF5_LIB}:${LD_LIBRARY_PATH:-}"
 
 if [ "$#" -eq 0 ]; then
     exec /bin/bash
@@ -185,6 +193,7 @@ EOF
     export MPLCONFIGDIR="${APPTAINER_CACHEDIR:-/tmp}/matplotlib"
     export PMIX_MCA_psec=native
     export PYTHONPATH="/opt:${PYTHONPATH:-}"
+    export ICESEE_CONTAINER=1
     
 %runscript
     #!/bin/sh
