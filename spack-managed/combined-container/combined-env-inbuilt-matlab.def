@@ -125,11 +125,12 @@ export ISSM_DIR="${ISSM_DIR:-/opt/ISSM}"
 # ICESEE Python
 . /opt/venv-icesee/bin/activate
 
-# ICESEE/OpenMPI runtime libs
-ICESEE_MPI_LIB="/opt/spack/linux-skylake/openmpi-5.0.10-f5se2v23aaj7xdbrgzf6zpdjjnbt6lmj/lib"
-ICESEE_HDF5_LIB="/opt/spack/linux-skylake/hdf5-1.14.5-oomu4lo2wkwg4ufbuiumyjuimwhmlp4o/lib"
+ICESEE_MPI_ROOT="/opt/spack/linux-skylake/openmpi-5.0.10-f5se2v23aaj7xdbrgzf6zpdjjnbt6lmj"
+ICESEE_HDF5_ROOT="/opt/spack/linux-skylake/hdf5-1.14.5-oomu4lo2wkwg4ufbuiumyjuimwhmlp4o"
 
-export LD_LIBRARY_PATH="${ICESEE_MPI_LIB}:${ICESEE_HDF5_LIB}:${LD_LIBRARY_PATH:-}"
+# Make sure OpenMPI launcher and libs are visible
+export PATH="${ICESEE_MPI_ROOT}/bin:${PATH:-}"
+export LD_LIBRARY_PATH="${ICESEE_MPI_ROOT}/lib:${ICESEE_HDF5_ROOT}/lib:${LD_LIBRARY_PATH:-}"
 
 # ISSM runtime
 if [ -f "${ISSM_DIR}/etc/environment.sh" ]; then
@@ -138,8 +139,9 @@ if [ -f "${ISSM_DIR}/etc/environment.sh" ]; then
     set -u
 fi
 
-# Restore ICESEE MPI libs in front after ISSM modifies LD_LIBRARY_PATH
-export LD_LIBRARY_PATH="${ICESEE_MPI_LIB}:${ICESEE_HDF5_LIB}:${LD_LIBRARY_PATH:-}"
+# Restore OpenMPI in front in case environment.sh overwrote paths
+export PATH="${ICESEE_MPI_ROOT}/bin:${PATH:-}"
+export LD_LIBRARY_PATH="${ICESEE_MPI_ROOT}/lib:${ICESEE_HDF5_ROOT}/lib:${LD_LIBRARY_PATH:-}"
 
 if [ "$#" -eq 0 ]; then
     exec /bin/bash
