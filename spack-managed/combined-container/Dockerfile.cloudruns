@@ -128,11 +128,13 @@ RUN mkdir -p /opt/matlab && printf '%s\n' \
     > /opt/matlab/startup.m
 
 # ── %environment ──────────────────────────────────────────────
-# MATLAB license server: the proven default is Georgia Tech's, but it is only
-# a DEFAULT. Override at build (--build-arg MLM_LICENSE_FILE=...) or at run
-# (docker run -e MLM_LICENSE_FILE=... / apptainer exec --env MLM_LICENSE_FILE=...).
-# The image itself does not otherwise depend on Georgia Tech infrastructure.
-ARG MLM_LICENSE_FILE="1711@matlablic.ecs.gatech.edu"
+# MATLAB license server is intentionally NOT baked into this portable public
+# image (no site-specific default). Supply it at run time:
+#   docker run     -e   MLM_LICENSE_FILE=<port@host> ...
+#   apptainer exec --env MLM_LICENSE_FILE=<port@host> ...
+# CryoStack/PACE passes MLM_LICENSE_FILE=1711@matlablic.ecs.gatech.edu when
+# needed. The proven combined-env.sif keeps that value as its own default;
+# this OCI image does not, so Georgia Tech infrastructure is not required.
 
 # Prepend /usr/local/bin (wrappers) while preserving the base image PATH,
 # exactly like the .def "export PATH=/usr/local/bin:${PATH}".
@@ -142,7 +144,6 @@ ENV OMP_NUM_THREADS=1 \
     OPENBLAS_NUM_THREADS=1 \
     HDF5_MPI=ON \
     ISSM_DIR=/opt/ISSM \
-    MLM_LICENSE_FILE="${MLM_LICENSE_FILE}" \
     MATLABPATH=/opt/matlab \
     MPLCONFIGDIR=/tmp/matplotlib \
     PMIX_MCA_psec=native \
