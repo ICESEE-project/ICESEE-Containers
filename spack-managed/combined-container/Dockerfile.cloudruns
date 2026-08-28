@@ -1,10 +1,23 @@
 # ============================================================
-# ICESEE Combined Container — Docker
-# Converted from combined-env-inbuilt-matlab.def
-# Base: docker.io/bkyanjo/combined-lean:v1.0
+# ICESEE Combined Container — Docker (OCI)
+#
+# OCI equivalent of the proven Apptainer image built from
+#   spack-managed/combined-container/combined-env-inbuilt-matlab.def
+# and verified running ISSM on PACE.
+#
+# The whole scientific environment (MATLAB R2024b, /opt/ISSM, Spack
+# OpenMPI 5.0.10 / MPICH, Firedrake, Icepack, ICESEE) lives in the base
+# image and is NOT rebuilt here. This layer only adds the ICESEE Python
+# deps and the runtime wrappers, exactly as the .def %post does.
+#
+# Base : docker.io/bkyanjo/combined-lean:v1.0
+#        @sha256:e2dc1c0dec138c632f4db95de89775a62175c3542170012c093845bd4e0e63f3
+# Build: docker build --platform linux/amd64 \
+#          --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+#          -f Dockerfile.cloudruns -t bkyanjo/icesee-combined:v1.0.0 .
 # ============================================================
 
-FROM docker.io/bkyanjo/combined-lean:v1.0
+FROM docker.io/bkyanjo/combined-lean:v1.0@sha256:e2dc1c0dec138c632f4db95de89775a62175c3542170012c093845bd4e0e63f3
 
 # ── %files ────────────────────────────────────────────────────
 COPY scripts/gen_pip_reqs.py /opt/build-scripts/gen_pip_reqs.py
@@ -115,13 +128,22 @@ RUN mkdir -p /opt/matlab && printf '%s\n' \
     > /opt/matlab/startup.m
 
 # ── %environment ──────────────────────────────────────────────
+# MATLAB license server: the proven default is Georgia Tech's, but it is only
+# a DEFAULT. Override at build (--build-arg MLM_LICENSE_FILE=...) or at run
+# (docker run -e MLM_LICENSE_FILE=... / apptainer exec --env MLM_LICENSE_FILE=...).
+# The image itself does not otherwise depend on Georgia Tech infrastructure.
+ARG MLM_LICENSE_FILE="1711@matlablic.ecs.gatech.edu"
+
+# Prepend /usr/local/bin (wrappers) while preserving the base image PATH,
+# exactly like the .def "export PATH=/usr/local/bin:${PATH}".
+ENV PATH="/usr/local/bin:${PATH}"
+
 ENV OMP_NUM_THREADS=1 \
     OPENBLAS_NUM_THREADS=1 \
     HDF5_MPI=ON \
     ISSM_DIR=/opt/ISSM \
-    MLM_LICENSE_FILE=1711@matlablic.ecs.gatech.edu \
+    MLM_LICENSE_FILE="${MLM_LICENSE_FILE}" \
     MATLABPATH=/opt/matlab \
-    PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     MPLCONFIGDIR=/tmp/matplotlib \
     PMIX_MCA_psec=native \
     PYTHONPATH=/opt \
@@ -139,7 +161,31 @@ RUN printf '%s\n' \
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["bash"]
 
-# ── Labels (from %labels) ─────────────────────────────────────
-LABEL maintainer="Brian Kyanjo" \
-      name="Combined Lean container" \
-      description="Combined runtime with built-in MATLAB base image"
+# ── OCI provenance labels ─────────────────────────────────────
+# BUILD_DATE is optional; pass --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)".
+ARG BUILD_DATE=""
+
+LABEL org.opencontainers.image.title="ICESEE Combined Container" \
+      org.opencontainers.image.description="OCI equivalent of combined-env-inbuilt-matlab.def: MATLAB R2024b + /opt/ISSM + Spack OpenMPI 5.0.10/MPICH + Firedrake + Icepack + ICESEE, with with-firedrake/with-icepack/with-icesee/with-issm/issm-matlab wrappers." \
+      org.opencontainers.image.authors="Brian Kyanjo" \
+      org.opencontainers.image.vendor="ICESEE Project" \
+      org.opencontainers.image.licenses="BSD-2-Clause" \
+      org.opencontainers.image.source="https://github.com/ICESEE-project/ICESEE-Containers" \
+      org.opencontainers.image.revision="c4ad0adf76e4cf03aab2cc45cdb45f56a5732421" \
+      org.opencontainers.image.version="v1.0.0" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.base.name="docker.io/bkyanjo/combined-lean:v1.0" \
+      org.opencontainers.image.base.digest="sha256:e2dc1c0dec138c632f4db95de89775a62175c3542170012c093845bd4e0e63f3" \
+      org.icesee.derived-from="spack-managed/combined-container/combined-env-inbuilt-matlab.def" \
+      org.icesee.architecture="linux/amd64" \
+      org.icesee.issm.version="2026.1" \
+      org.icesee.issm.revision="e70338d8685f8582b61958211e8f5fce2ea686ff" \
+      org.icesee.issm.build-date="2026-03-13T13:19:44Z" \
+      org.icesee.matlab.version="R2024b Update 7 (24.2.0.3070828)" \
+      org.icesee.mpi="Open MPI 5.0.10" \
+      org.icesee.mpi.issm-launcher="/opt/spack/linux-skylake/openmpi-5.0.10-f5se2v23aaj7xdbrgzf6zpdjjnbt6lmj/bin/mpiexec" \
+      org.icesee.python.version="3.12" \
+      org.icesee.path.icesee="/opt/ICESEE/__init__.py" \
+      org.icesee.path.icepack="/opt/icepack/src/icepack/__init__.py" \
+      org.icesee.path.firedrake="/opt/venv-firedrake/lib/python3.12/site-packages/firedrake/__init__.py" \
+      maintainer="Brian Kyanjo"
