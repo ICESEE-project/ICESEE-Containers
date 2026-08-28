@@ -8,7 +8,9 @@
 # The whole scientific environment (MATLAB R2024b, /opt/ISSM, Spack
 # OpenMPI 5.0.10 / MPICH, Firedrake, Icepack, ICESEE) lives in the base
 # image and is NOT rebuilt here. This layer only adds the ICESEE Python
-# deps and the runtime wrappers, exactly as the .def %post does.
+# deps and the runtime wrappers, as the .def %post does. The only
+# deliberate deviation: with-issm sets MATLABPATH explicitly (the .def
+# relied on /opt/matlab/startup.m, which `matlab -batch` does not run).
 #
 # Base : docker.io/bkyanjo/combined-lean:v1.0
 #        @sha256:e2dc1c0dec138c632f4db95de89775a62175c3542170012c093845bd4e0e63f3
@@ -93,6 +95,12 @@ RUN printf '%s\n' \
     > /usr/local/bin/with-icesee && chmod +x /usr/local/bin/with-icesee
 
 # ── with-issm ─────────────────────────────────────────────────
+# Same as the .def wrapper, plus one addition: put /opt/ISSM/bin, /opt/ISSM/lib
+# and /opt/matlab on MATLABPATH explicitly. The .def relies on MATLAB running
+# /opt/matlab/startup.m to add the ISSM dirs, but `matlab -batch` does NOT run
+# startup.m, so `with-issm matlab -batch "issmversion"` failed. Setting
+# MATLABPATH in the wrapper makes it work under both -batch and -r and does
+# not depend on HOME, the working directory, or a startup-file location.
 RUN printf '%s\n' \
     '#!/bin/bash' \
     'set -e' \
@@ -106,6 +114,15 @@ RUN printf '%s\n' \
     'if [ -f "${ISSM_DIR}/etc/environment.sh" ]; then set +u; . "${ISSM_DIR}/etc/environment.sh"; set -u; fi' \
     'export PATH="${ICESEE_MPI_ROOT}/bin:${PATH:-}"' \
     'export LD_LIBRARY_PATH="${ICESEE_MPI_ROOT}/lib:${ICESEE_HDF5_ROOT}/lib:${LD_LIBRARY_PATH:-}"' \
+    '# MATLAB search path: ISSM dirs + /opt/matlab first, then any caller MATLABPATH,' \
+    '# de-duplicated (first occurrence wins) so a pre-set MATLABPATH=/opt/matlab' \
+    '# does not produce a repeated entry.' \
+    '_ISSM_MP=""' \
+    'for _d in "${ISSM_DIR}/bin" "${ISSM_DIR}/lib" /opt/matlab ${MATLABPATH:+${MATLABPATH//:/ }}; do' \
+    '    case ":${_ISSM_MP}:" in *:"${_d}":*) ;; *) _ISSM_MP="${_ISSM_MP:+${_ISSM_MP}:}${_d}" ;; esac' \
+    'done' \
+    'export MATLABPATH="${_ISSM_MP}"' \
+    'unset _ISSM_MP _d' \
     'if [ "$#" -eq 0 ]; then exec /bin/bash; else exec "$@"; fi' \
     > /usr/local/bin/with-issm && chmod +x /usr/local/bin/with-issm
 
